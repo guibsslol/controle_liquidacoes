@@ -196,6 +196,71 @@ button {
   box-shadow: 0 0 3px #3498db;
 }
 
+/* ==========================================================
+   NOVO: SUB-ABAS (MESES) E ORDENAÇÃO DA TABELA
+   ========================================================== */
+.sub-abas-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 30px;
+  margin-bottom: -15px;
+  padding: 0 5px;
+  overflow-x: auto;
+}
+.lista-sub-abas {
+  display: flex;
+  gap: 8px;
+}
+.sub-aba {
+  padding: 6px 15px;
+  background-color: #f1f3f4;
+  border: 1px solid #dcdde1;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+  color: #7f8c8d;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sub-aba.ativa {
+  background-color: #f8f9fa;
+  color: #2980b9;
+  border-top: 3px solid #2980b9;
+  border-bottom: 2px solid #f8f9fa; /* Esconde a linha da tabela */
+  position: relative;
+  z-index: 11; /* Fica acima do cabeçalho da tabela */
+}
+.btn-novo-mes {
+  padding: 5px 10px;
+  background-color: #f39c12;
+  color: white;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+
+.th-sortable {
+  cursor: pointer;
+  transition: background 0.2s;
+  user-select: none;
+}
+.th-sortable:hover {
+  background-color: #e2e6ea !important;
+}
+.th-sortable i {
+  font-size: 11px;
+  margin-left: 5px;
+  color: #bdc3c7;
+}
+.th-sortable.sorted-asc i,
+.th-sortable.sorted-desc i {
+  color: #2980b9;
+}
+
 /* Tabela */
 table {
   width: 100%;
