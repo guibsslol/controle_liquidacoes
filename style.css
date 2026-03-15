@@ -199,6 +199,9 @@ button {
 /* ==========================================================
    NOVO: SUB-ABAS (MESES) E ORDENAÇÃO DA TABELA
    ========================================================== */
+/* ==========================================================
+   NOVO: SUB-ABAS (MESES) E ORDENAÇÃO DA TABELA
+   ========================================================== */
 .sub-abas-container {
   display: flex;
   align-items: center;
@@ -212,27 +215,46 @@ button {
   display: flex;
   gap: 8px;
 }
+
 .sub-aba {
   padding: 6px 15px;
   background-color: #f1f3f4;
   border: 1px solid #dcdde1;
   border-bottom: none;
   border-radius: 8px 8px 0 0;
-  cursor: pointer;
+  cursor: grab; /* Mãozinha aberta */
   font-size: 13px;
   font-weight: bold;
   color: #7f8c8d;
   display: flex;
   align-items: center;
   gap: 6px;
+  transition: all 0.2s ease;
+
+  /* Impede a seleção de texto ao arrastar */
+  user-select: none;
+  -webkit-user-select: none;
 }
+
+/* Cursor de mão fechada ao segurar a sub-aba */
+.sub-aba:active {
+  cursor: grabbing;
+}
+
+/* Visual de quando uma sub-aba está passando por cima da outra */
+.sub-aba.drag-over {
+  opacity: 0.6;
+  border-left: 3px dashed #3498db;
+  border-right: 3px dashed #3498db;
+}
+
 .sub-aba.ativa {
   background-color: #f8f9fa;
   color: #2980b9;
   border-top: 3px solid #2980b9;
-  border-bottom: 2px solid #f8f9fa; /* Esconde a linha da tabela */
+  border-bottom: 2px solid #f8f9fa;
   position: relative;
-  z-index: 11; /* Fica acima do cabeçalho da tabela */
+  z-index: 11;
 }
 .btn-novo-mes {
   padding: 5px 10px;

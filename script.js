@@ -4,6 +4,7 @@ let mesAtivo = 'Janeiro';
 
 let arquivoHandle = null;
 let abaArrastada = null;
+let subAbaArrastada = null; // NOVO: Controla qual sub-aba (mês) está sendo movida
 let linhaEmEdicao = null;
 
 // Variáveis para a ordenação (Sort)
@@ -268,6 +269,113 @@ function renderizarAbas() {
   });
 }
 
+// ==========================================
+// FUNÇÃO NOVA: DUPLICAR MÊS (COM ESCOLHA DE CAMPOS)
+// ==========================================
+async function duplicarMes() {
+  const mesesDisponiveis = Object.keys(dadosAbas[abaAtiva]);
+  if (mesesDisponiveis.length === 0) {
+    Swal.fire('Erro', 'Não há meses para copiar.', 'error');
+    return;
+  }
+
+  // Cria as opções de meses para o menu suspenso (selecionando o mês atual por padrão)
+  let optionsHtml = '';
+  mesesDisponiveis.forEach((m) => {
+    optionsHtml += `<option value="${m}" ${m === mesAtivo ? 'selected' : ''}>${m}</option>`;
+  });
+
+  // Abre a janela perguntando o que deve ser copiado
+  const { value: formValues } = await Swal.fire({
+    title: 'Copiar Mês',
+    html: `
+            <div style="text-align: left; font-size: 14px;">
+                <label style="font-weight: bold; color: #2c3e50;">1. Qual mês deseja copiar?</label>
+                <select id="swal-origem" class="swal2-select" style="width: 100%; margin: 5px 0 15px 0; padding: 5px;">
+                    ${optionsHtml}
+                </select>
+                
+                <label style="font-weight: bold; color: #2c3e50;">2. Nome do Novo Mês:</label>
+                <input id="swal-novo-mes" class="swal2-input" placeholder="Ex: Março-26" style="width: 100%; margin: 5px 0 15px 0; box-sizing: border-box;">
+                
+                <label style="font-weight: bold; color: #2c3e50;">3. Quais colunas deseja importar?</label>
+                <div style="margin-top: 5px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #eee;">
+                    <label style="cursor: pointer;"><input type="checkbox" id="chk-proc" checked> Processo</label>
+                    <label style="cursor: pointer;"><input type="checkbox" id="chk-emp" checked> Empresa</label>
+                    <label style="cursor: pointer;"><input type="checkbox" id="chk-elem" checked> Elemento</label>
+                    <label style="cursor: pointer;"><input type="checkbox" id="chk-empenho" checked> Empenho</label>
+                    <label style="cursor: pointer;"><input type="checkbox" id="chk-liq"> Liquidação</label>
+                </div>
+                <div style="margin-top: 12px; font-size: 11px; color: #e74c3c; font-weight: bold;">
+                    <i class="fa-solid fa-circle-info"></i> Atenção: O Status será resetado para "Aguardando Pagamento" e a OP ficará em branco.
+                </div>
+            </div>
+        `,
+    focusConfirm: false,
+    showCancelButton: true,
+    confirmButtonText: 'Criar e Importar',
+    cancelButtonText: 'Cancelar',
+    preConfirm: () => {
+      const origem = document.getElementById('swal-origem').value;
+      const novoMes = document.getElementById('swal-novo-mes').value.trim();
+
+      if (!novoMes) {
+        Swal.showValidationMessage('Digite o nome do novo mês!');
+        return false;
+      }
+      if (dadosAbas[abaAtiva][novoMes]) {
+        Swal.showValidationMessage('Já existe um mês com este nome nesta aba!');
+        return false;
+      }
+
+      return {
+        origem,
+        novoMes,
+        importProc: document.getElementById('chk-proc').checked,
+        importEmp: document.getElementById('chk-emp').checked,
+        importElem: document.getElementById('chk-elem').checked,
+        importEmpenho: document.getElementById('chk-empenho').checked,
+        importLiq: document.getElementById('chk-liq').checked,
+      };
+    },
+  });
+
+  if (formValues) {
+    const { origem, novoMes, importProc, importEmp, importElem, importEmpenho, importLiq } =
+      formValues;
+
+    // 1. Cria o novo mês no banco de dados
+    dadosAbas[abaAtiva][novoMes] = [];
+
+    // 2. Varre o mês antigo e copia apenas as colunas que o usuário marcou
+    dadosAbas[abaAtiva][origem].forEach((reg, index) => {
+      dadosAbas[abaAtiva][novoMes].push({
+        id: Date.now() + index, // ID único novo
+        processo: importProc ? reg.processo : '',
+        empresa: importEmp ? reg.empresa : '',
+        elemento: importElem ? reg.elemento : '',
+        empenho: importEmpenho ? reg.empenho : '',
+        liquidacao: importLiq ? reg.liquidacao : '',
+        status: 'Aguardando Pagamento', // Resetado
+        op: '', // Resetado
+      });
+    });
+
+    // 3. Muda a tela para o novo mês recém-criado
+    mesAtivo = novoMes;
+
+    salvarArquivoAutomaticamente();
+    renderizarSubAbas();
+    renderizarTabela();
+
+    Swal.fire(
+      'Pronto!',
+      `O mês "${novoMes}" foi criado e ${dadosAbas[abaAtiva][novoMes].length} processos foram importados!`,
+      'success',
+    );
+  }
+}
+
 function renderizarSubAbas() {
   const listaMeses = document.getElementById('lista-sub-abas');
   listaMeses.innerHTML = '';
@@ -277,6 +385,9 @@ function renderizarSubAbas() {
   Object.keys(dadosAbas[abaAtiva]).forEach((nomeMes) => {
     const divMes = document.createElement('div');
     divMes.className = `sub-aba ${nomeMes === mesAtivo ? 'ativa' : ''}`;
+
+    // NOVO: Habilita o elemento para ser arrastado
+    divMes.setAttribute('draggable', true);
 
     divMes.innerHTML = `
             <span>${nomeMes}</span>
@@ -293,8 +404,71 @@ function renderizarSubAbas() {
       renderizarTabela();
     };
 
+    // ==========================================
+    // EVENTOS DE ARRASTAR E SOLTAR (SUB-ABAS)
+    // ==========================================
+
+    divMes.addEventListener('dragstart', function (e) {
+      subAbaArrastada = nomeMes;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => (this.style.opacity = '0.4'), 0);
+    });
+
+    divMes.addEventListener('dragend', function () {
+      this.style.opacity = '1';
+      document.querySelectorAll('.sub-aba').forEach((a) => a.classList.remove('drag-over'));
+      subAbaArrastada = null;
+    });
+
+    divMes.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      return false;
+    });
+
+    divMes.addEventListener('dragenter', function (e) {
+      if (nomeMes !== subAbaArrastada) this.classList.add('drag-over');
+    });
+
+    divMes.addEventListener('dragleave', function () {
+      this.classList.remove('drag-over');
+    });
+
+    // AÇÃO FINAL: Ao soltar a sub-aba
+    divMes.addEventListener('drop', function (e) {
+      e.stopPropagation();
+      this.classList.remove('drag-over');
+
+      if (subAbaArrastada !== nomeMes) {
+        reordenarSubAbas(subAbaArrastada, nomeMes);
+      }
+      return false;
+    });
+
     listaMeses.appendChild(divMes);
   });
+}
+
+// Nova função que reescreve a ordem dos meses no banco de dados
+function reordenarSubAbas(mesOrigem, mesDestino) {
+  const chaves = Object.keys(dadosAbas[abaAtiva]);
+  const indexOrigem = chaves.indexOf(mesOrigem);
+  const indexDestino = chaves.indexOf(mesDestino);
+
+  // Remove do local antigo e insere no novo
+  chaves.splice(indexOrigem, 1);
+  chaves.splice(indexDestino, 0, mesOrigem);
+
+  // Recria a estrutura do mês mantendo a nova ordem
+  const novoObjetoMeses = {};
+  chaves.forEach((chave) => {
+    novoObjetoMeses[chave] = dadosAbas[abaAtiva][chave];
+  });
+
+  // Atualiza os dados, salva no arquivo e atualiza a tela
+  dadosAbas[abaAtiva] = novoObjetoMeses;
+  salvarArquivoAutomaticamente();
+  renderizarSubAbas();
 }
 
 // Funções de CRUD das Abas e Meses (Renomear, Excluir, Criar)
@@ -358,6 +532,102 @@ async function criarNovaAba() {
       renderizarSubAbas();
       renderizarTabela();
     }
+  }
+}
+
+// ==========================================
+// FUNÇÃO NOVA: AGRUPAR ABAS SOLTAS EM SUB-ABAS
+// ==========================================
+async function agruparAbas() {
+  const abasDisponiveis = Object.keys(dadosAbas);
+  if (abasDisponiveis.length < 2) {
+    Swal.fire('Atenção', 'Você precisa de pelo menos 2 assuntos para agrupá-los.', 'info');
+    return;
+  }
+
+  // Cria a lista de caixinhas (checkboxes) com as abas atuais
+  let htmlCheckboxes =
+    '<div style="text-align: left; max-height: 200px; overflow-y: auto; margin-top: 15px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; background: #f9f9f9;">';
+  abasDisponiveis.forEach((aba) => {
+    htmlCheckboxes += `<label style="display: block; margin-bottom: 8px; cursor: pointer; font-size: 14px;"><input type="checkbox" class="swal-aba-checkbox" value="${aba}" style="margin-right: 8px;"> ${aba}</label>`;
+  });
+  htmlCheckboxes += '</div>';
+
+  const { value: formValues } = await Swal.fire({
+    title: 'Agrupar Assuntos',
+    html:
+      `<div style="font-size: 14px; text-align: left; margin-bottom: 10px;">Selecione os assuntos que deseja fundir e dê um nome para a nova Aba Principal:</div>` +
+      `<input id="swal-input-novo-nome" class="swal2-input" placeholder="Nome do Novo Assunto (ex: Liquidações)" style="margin-top: 0;">` +
+      htmlCheckboxes,
+    focusConfirm: false,
+    showCancelButton: true,
+    confirmButtonText: 'Agrupar Agora',
+    cancelButtonText: 'Cancelar',
+    preConfirm: () => {
+      const selecionados = Array.from(document.querySelectorAll('.swal-aba-checkbox:checked')).map(
+        (cb) => cb.value,
+      );
+      const novoNome = document.getElementById('swal-input-novo-nome').value.trim();
+
+      if (selecionados.length === 0) {
+        Swal.showValidationMessage('Selecione pelo menos 1 assunto para agrupar!');
+        return false;
+      }
+      if (!novoNome) {
+        Swal.showValidationMessage('Digite o nome do novo assunto principal!');
+        return false;
+      }
+      return { selecionados, novoNome };
+    },
+  });
+
+  if (formValues) {
+    const { selecionados, novoNome } = formValues;
+
+    // Se a nova aba principal ainda não existe, cria ela
+    if (!dadosAbas[novoNome]) {
+      dadosAbas[novoNome] = {};
+    }
+
+    selecionados.forEach((abaAntiga) => {
+      // Varre os meses da aba antiga (normalmente só vai ter o "Geral" da importação)
+      Object.keys(dadosAbas[abaAntiga]).forEach((mesAntigo) => {
+        let novoNomeMes = abaAntiga;
+
+        // MÁGICA: Limpa automaticamente o prefixo "LIQ." para o nome da sub-aba ficar bonito
+        novoNomeMes = novoNomeMes
+          .replace('LIQ. ', '')
+          .replace('LIQ.', '')
+          .replace('Liq. ', '')
+          .replace('LIQ ', '')
+          .trim();
+
+        // Transfere os dados para o novo endereço
+        if (dadosAbas[novoNome][novoNomeMes]) {
+          dadosAbas[novoNome][novoNomeMes] = dadosAbas[novoNome][novoNomeMes].concat(
+            dadosAbas[abaAntiga][mesAntigo],
+          );
+        } else {
+          dadosAbas[novoNome][novoNomeMes] = dadosAbas[abaAntiga][mesAntigo];
+        }
+      });
+
+      // Deleta a aba antiga principal da raiz do sistema
+      if (abaAntiga !== novoNome) {
+        delete dadosAbas[abaAntiga];
+      }
+    });
+
+    // Aponta a tela para a nova aba criada
+    abaAtiva = novoNome;
+    mesAtivo = Object.keys(dadosAbas[novoNome])[0];
+
+    salvarArquivoAutomaticamente();
+    renderizarAbas();
+    renderizarSubAbas();
+    renderizarTabela();
+
+    Swal.fire('Sucesso!', 'Os assuntos foram agrupados em Sub-Abas perfeitamente!', 'success');
   }
 }
 
@@ -716,6 +986,113 @@ function exportarParaExcel() {
   let nomeArquivo = `${abaAtiva}_${mesAtivo}`.replace(/[^a-z0-9]/gi, '_');
   let workbook = XLSX.utils.table_to_book(tabela, { sheet: 'Plan1' });
   XLSX.writeFile(workbook, `Controle_${nomeArquivo}.xlsx`);
+}
+
+// ==========================================
+// 5. IMPORTAÇÃO DE EXCEL (CRIANDO ABAS PRINCIPAIS)
+// ==========================================
+
+function processarImportacaoExcel(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: 'array' });
+
+    Swal.fire({
+      title: 'Importar Planilha Completa?',
+      text: `Encontramos ${workbook.SheetNames.length} páginas no Excel. Elas serão importadas como NOVOS ASSUNTOS (Abas Principais) lá no rodapé do sistema.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sim, importar tudo!',
+      cancelButtonText: 'Cancelar',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        let totalImportados = 0;
+
+        // Faz um loop passando por TODAS as abas do arquivo Excel
+        workbook.SheetNames.forEach((sheetName) => {
+          const worksheet = workbook.Sheets[sheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+          // A MÁGICA: Cria uma NOVA ABA PRINCIPAL com o nome da planilha do Excel
+          // E cria um sub-mês padrão chamado "Geral" para guardar os dados
+          if (!dadosAbas[sheetName]) {
+            dadosAbas[sheetName] = { Geral: [] };
+          } else if (!dadosAbas[sheetName]['Geral']) {
+            dadosAbas[sheetName]['Geral'] = []; // Prevenção caso a aba já exista sem o mês Geral
+          }
+
+          // Começa do index 1 para pular a linha de cabeçalho do Excel
+          for (let i = 1; i < json.length; i++) {
+            const row = json[i];
+
+            // Ignora linhas vazias
+            if (!row || row.length === 0) continue;
+
+            const proc = row[1] ? String(row[1]).trim() : '';
+            const emp = row[2] ? String(row[2]).trim() : '';
+
+            // Ignora a linha se a coluna Empresa estiver em branco
+            if (!emp) continue;
+
+            const elem = row[3] ? String(row[3]).trim() : '';
+            const empen = row[4] ? String(row[4]).trim() : '';
+            const liq = row[5] ? String(row[5]).trim() : '';
+            const numOp = row[6] ? String(row[6]).trim() : '';
+
+            const statusPag = numOp !== '' ? 'Pago' : 'Aguardando Pagamento';
+
+            // Garante que os processos importados tenham o prefixo BJI-
+            let procFormatado = proc;
+            if (procFormatado && !procFormatado.toUpperCase().startsWith('BJI-')) {
+              procFormatado = 'BJI-' + procFormatado;
+            }
+
+            const novoReg = {
+              id: Date.now() + Math.floor(Math.random() * 100000),
+              processo: procFormatado,
+              empresa: emp,
+              elemento: elem,
+              empenho: empen,
+              liquidacao: liq,
+              status: statusPag,
+              op: numOp,
+            };
+
+            // Salva os dados na aba principal nova, dentro do mês "Geral"
+            dadosAbas[sheetName]['Geral'].push(novoReg);
+            totalImportados++;
+          }
+        });
+
+        // Muda a tela automaticamente para a primeira aba principal importada
+        if (workbook.SheetNames.length > 0) {
+          abaAtiva = workbook.SheetNames[0];
+          mesAtivo = 'Geral';
+        }
+
+        salvarArquivoAutomaticamente();
+
+        // Agora o sistema manda redesenhar as abas de baixo também!
+        renderizarAbas();
+        renderizarSubAbas();
+        renderizarTabela();
+        atualizarAutocompletarGlobal();
+
+        Swal.fire(
+          'Sucesso!',
+          `${totalImportados} processos importados e organizados em ${workbook.SheetNames.length} novos Assuntos!`,
+          'success',
+        );
+      }
+
+      document.getElementById('input-importar-excel').value = '';
+    });
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 atualizarAutocompletarGlobal(); // Chamada inicial

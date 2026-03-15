@@ -3,11 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <title>Controle de Processos e Liquidações</title>
-    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="style.css"
+    />
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
 
     <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
   </head>
@@ -17,13 +23,23 @@
         <h2>
           <span><i class="fa-solid fa-folder-open"></i> Lançamento de Processos</span>
           <div style="font-size: 14px; display: flex; gap: 10px; align-items: center">
-            <span id="status-conexao" style="font-size: 12px; color: #e74c3c; font-weight: bold"
+            <span
+              id="status-conexao"
+              style="font-size: 12px; color: #e74c3c; font-weight: bold"
               ><i class="fa-solid fa-circle-xmark"></i> Desconectado</span
             >
-            <button id="btn-conectar" onclick="conectarNovoArquivo()" style="background-color: #8e44ad; color: white">
+            <button
+              id="btn-conectar"
+              onclick="conectarNovoArquivo()"
+              style="background-color: #8e44ad; color: white"
+            >
               <i class="fa-solid fa-link"></i> Conectar Banco
             </button>
-            <button id="btn-desconectar" onclick="desconectarArquivo()" style="display: none; background-color: #7f8c8d; color: white">
+            <button
+              id="btn-desconectar"
+              onclick="desconectarArquivo()"
+              style="display: none; background-color: #7f8c8d; color: white"
+            >
               <i class="fa-solid fa-link-slash"></i> Desconectar
             </button>
           </div>
@@ -34,41 +50,75 @@
             <i class="fa-solid fa-file-lines"></i>
             <div class="card-info">
               <span class="card-titulo">Total Listado</span>
-              <span class="card-valor" id="resumo-total">0</span>
+              <span
+                class="card-valor"
+                id="resumo-total"
+                >0</span
+              >
             </div>
           </div>
           <div class="card card-pendente">
             <i class="fa-solid fa-clock"></i>
             <div class="card-info">
               <span class="card-titulo">Aguardando Pagamento</span>
-              <span class="card-valor" id="resumo-pendente">0</span>
+              <span
+                class="card-valor"
+                id="resumo-pendente"
+                >0</span
+              >
             </div>
           </div>
           <div class="card card-pago">
             <i class="fa-solid fa-check-double"></i>
             <div class="card-info">
               <span class="card-titulo">Liquidações Pagas</span>
-              <span class="card-valor" id="resumo-pago">0</span>
+              <span
+                class="card-valor"
+                id="resumo-pago"
+                >0</span
+              >
             </div>
           </div>
         </div>
 
-        <div class="form-row" id="area-formulario">
+        <div
+          class="form-row"
+          id="area-formulario"
+        >
           <div class="input-group">
             <label>Nº Processo</label>
-            <input type="text" id="processo" list="lista-processos" placeholder="BJI-XXXXXX/XXXXXX/XXXX" oninput="mascaraProcesso(event)" />
+            <input
+              type="text"
+              id="processo"
+              list="lista-processos"
+              placeholder="BJI-XXXXXX/XXXXXX/XXXX"
+              oninput="mascaraProcesso(event)"
+            />
             <datalist id="lista-processos"></datalist>
           </div>
 
-          <div class="input-group" style="flex: 2">
+          <div
+            class="input-group"
+            style="flex: 2"
+          >
             <label>Empresa Fornecedora</label>
-            <input type="text" id="empresa" list="lista-empresas" placeholder="Nome da empresa" />
+            <input
+              type="text"
+              id="empresa"
+              list="lista-empresas"
+              placeholder="Nome da empresa"
+            />
             <datalist id="lista-empresas"></datalist>
           </div>
 
           <div class="input-group">
             <label>Elemento/Serviço</label>
-            <input type="text" id="elemento" list="lista-elementos" placeholder="Material/Serviço" />
+            <input
+              type="text"
+              id="elemento"
+              list="lista-elementos"
+              placeholder="Material/Serviço"
+            />
             <datalist id="lista-elementos"></datalist>
           </div>
         </div>
@@ -76,13 +126,22 @@
         <div class="form-row">
           <div class="input-group">
             <label>Nº Empenho</label>
-            <input type="text" id="empenho" list="lista-empenhos" placeholder="Ex: 2026NE001" />
+            <input
+              type="text"
+              id="empenho"
+              list="lista-empenhos"
+              placeholder="Ex: 2026NE001"
+            />
             <datalist id="lista-empenhos"></datalist>
           </div>
 
           <div class="input-group">
             <label>Nº Liquidação</label>
-            <input type="text" id="liquidacao" placeholder="Ex: 1/1" />
+            <input
+              type="text"
+              id="liquidacao"
+              placeholder="Ex: 1/1"
+            />
           </div>
 
           <div class="input-group">
@@ -95,15 +154,27 @@
 
           <div class="input-group">
             <label>Nº OP</label>
-            <input type="text" id="op" placeholder="Se pago, insira a OP" />
+            <input
+              type="text"
+              id="op"
+              placeholder="Se pago, insira a OP"
+            />
           </div>
         </div>
 
         <div class="btn-container">
-          <button id="btnPrincipal" class="btn-add" onclick="adicionarRegistro()">
+          <button
+            id="btnPrincipal"
+            class="btn-add"
+            onclick="adicionarRegistro()"
+          >
             <i class="fa-solid fa-plus"></i> Lançar no Mês Atual
           </button>
-          <button class="btn-clear" onclick="limparInputs()" style="background-color: #95a5a6">
+          <button
+            class="btn-clear"
+            onclick="limparInputs()"
+            style="background-color: #95a5a6"
+          >
             <i class="fa-solid fa-eraser"></i> Limpar Campos
           </button>
         </div>
@@ -111,11 +182,34 @@
         <div class="filtros-container">
           <h4><i class="fa-solid fa-filter"></i> Filtrar Mês Atual</h4>
           <div class="form-row">
-            <select id="filtro-processo" onchange="renderizarTabela()"><option value="">Todos os Processos</option></select>
-            <select id="filtro-empresa" onchange="renderizarTabela()"><option value="">Todas as Empresas</option></select>
-            <select id="filtro-elemento" onchange="renderizarTabela()"><option value="">Todos os Elementos</option></select>
-            <select id="filtro-empenho" onchange="renderizarTabela()"><option value="">Todos os Empenhos</option></select>
-            <select id="filtro-status" onchange="renderizarTabela()">
+            <select
+              id="filtro-processo"
+              onchange="renderizarTabela()"
+            >
+              <option value="">Todos os Processos</option>
+            </select>
+            <select
+              id="filtro-empresa"
+              onchange="renderizarTabela()"
+            >
+              <option value="">Todas as Empresas</option>
+            </select>
+            <select
+              id="filtro-elemento"
+              onchange="renderizarTabela()"
+            >
+              <option value="">Todos os Elementos</option>
+            </select>
+            <select
+              id="filtro-empenho"
+              onchange="renderizarTabela()"
+            >
+              <option value="">Todos os Empenhos</option>
+            </select>
+            <select
+              id="filtro-status"
+              onchange="renderizarTabela()"
+            >
               <option value="">Todos os Status</option>
               <option value="Aguardando Pagamento">Aguardando Pagamento</option>
               <option value="Pago">Pago</option>
@@ -124,20 +218,100 @@
         </div>
 
         <div class="sub-abas-container">
-          <div id="lista-sub-abas" class="lista-sub-abas"></div>
-          <button class="btn-novo-mes" onclick="criarNovoMes()"><i class="fa-solid fa-calendar-plus"></i> Novo Mês</button>
+          <div
+            id="lista-sub-abas"
+            class="lista-sub-abas"
+          ></div>
+          <button
+            class="btn-novo-mes"
+            onclick="criarNovoMes()"
+          >
+            <i class="fa-solid fa-calendar-plus"></i> Novo Mês
+          </button>
+
+          <button
+            class="btn-novo-mes"
+            onclick="duplicarMes()"
+            style="background-color: #3498db; margin-left: 5px"
+            title="Copiar dados de um mês anterior para um novo mês"
+          >
+            <i class="fa-solid fa-copy"></i> Copiar Mês
+          </button>
         </div>
 
         <table id="tabela-processos">
           <thead>
             <tr>
-              <th onclick="ordenarTabela('processo')" class="th-sortable">Processo <i class="fa-solid fa-sort" id="sort-icon-processo"></i></th>
-              <th onclick="ordenarTabela('empresa')" class="th-sortable">Empresa <i class="fa-solid fa-sort" id="sort-icon-empresa"></i></th>
-              <th onclick="ordenarTabela('elemento')" class="th-sortable">Elemento <i class="fa-solid fa-sort" id="sort-icon-elemento"></i></th>
-              <th onclick="ordenarTabela('empenho')" class="th-sortable">Empenho <i class="fa-solid fa-sort" id="sort-icon-empenho"></i></th>
-              <th onclick="ordenarTabela('liquidacao')" class="th-sortable">Liquidação <i class="fa-solid fa-sort" id="sort-icon-liquidacao"></i></th>
-              <th onclick="ordenarTabela('status')" class="th-sortable">Situação <i class="fa-solid fa-sort" id="sort-icon-status"></i></th>
-              <th onclick="ordenarTabela('op')" class="th-sortable">OP <i class="fa-solid fa-sort" id="sort-icon-op"></i></th>
+              <th
+                onclick="ordenarTabela('processo')"
+                class="th-sortable"
+              >
+                Processo
+                <i
+                  class="fa-solid fa-sort"
+                  id="sort-icon-processo"
+                ></i>
+              </th>
+              <th
+                onclick="ordenarTabela('empresa')"
+                class="th-sortable"
+              >
+                Empresa
+                <i
+                  class="fa-solid fa-sort"
+                  id="sort-icon-empresa"
+                ></i>
+              </th>
+              <th
+                onclick="ordenarTabela('elemento')"
+                class="th-sortable"
+              >
+                Elemento
+                <i
+                  class="fa-solid fa-sort"
+                  id="sort-icon-elemento"
+                ></i>
+              </th>
+              <th
+                onclick="ordenarTabela('empenho')"
+                class="th-sortable"
+              >
+                Empenho
+                <i
+                  class="fa-solid fa-sort"
+                  id="sort-icon-empenho"
+                ></i>
+              </th>
+              <th
+                onclick="ordenarTabela('liquidacao')"
+                class="th-sortable"
+              >
+                Liquidação
+                <i
+                  class="fa-solid fa-sort"
+                  id="sort-icon-liquidacao"
+                ></i>
+              </th>
+              <th
+                onclick="ordenarTabela('status')"
+                class="th-sortable"
+              >
+                Situação
+                <i
+                  class="fa-solid fa-sort"
+                  id="sort-icon-status"
+                ></i>
+              </th>
+              <th
+                onclick="ordenarTabela('op')"
+                class="th-sortable"
+              >
+                OP
+                <i
+                  class="fa-solid fa-sort"
+                  id="sort-icon-op"
+                ></i>
+              </th>
               <th class="coluna-acao">Ações</th>
             </tr>
           </thead>
@@ -146,16 +320,87 @@
       </div>
 
       <div class="abas-container">
-        <div id="lista-abas" class="lista-abas"></div>
-        <button class="btn-nova-aba" onclick="criarNovaAba()">
+        <div
+          id="lista-abas"
+          class="lista-abas"
+        ></div>
+        <button
+          class="btn-nova-aba"
+          onclick="criarNovaAba()"
+        >
           <i class="fa-solid fa-plus"></i> Novo Assunto
         </button>
 
-        <div class="acoes-finais" style="margin-left: auto; display: flex; gap: 10px; margin-bottom: 5px">
-          <button class="btn-excel" onclick="exportarParaExcel()" style="background-color: #27ae60; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);">
-            <i class="fa-solid fa-file-excel"></i> Excel
+        <button
+          class="btn-nova-aba"
+          onclick="agruparAbas()"
+          style="background-color: #9b59b6; margin-left: 5px"
+          title="Juntar várias abas em uma só"
+        >
+          <i class="fa-solid fa-object-group"></i> Agrupar
+        </button>
+
+        <div
+          class="acoes-finais"
+          style="
+            margin-left: auto;
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+            pointer-events: auto;
+          "
+        >
+          <input
+            type="file"
+            id="input-importar-excel"
+            accept=".xlsx, .xls, .csv"
+            style="display: none"
+            onchange="processarImportacaoExcel(event)"
+          />
+
+          <button
+            onclick="document.getElementById('input-importar-excel').click()"
+            style="
+              background-color: #f39c12;
+              color: white;
+              border: none;
+              padding: 5px 15px;
+              border-radius: 4px;
+              cursor: pointer;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+            "
+          >
+            <i class="fa-solid fa-file-import"></i> Importar Excel
           </button>
-          <button onclick="window.print()" style="background-color: #34495e; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);">
+
+          <button
+            class="btn-excel"
+            onclick="exportarParaExcel()"
+            style="
+              background-color: #27ae60;
+              color: white;
+              border: none;
+              padding: 5px 15px;
+              border-radius: 4px;
+              cursor: pointer;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+            "
+          >
+            <i class="fa-solid fa-file-excel"></i> Exportar
+          </button>
+
+          <button
+            onclick="window.print()"
+            style="
+              background-color: #34495e;
+              color: white;
+              border: none;
+              padding: 5px 15px;
+              border-radius: 4px;
+              cursor: pointer;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+            "
+          >
             <i class="fa-solid fa-print"></i> Imprimir
           </button>
         </div>
