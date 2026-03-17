@@ -1,3 +1,44 @@
+/* ==========================================================
+   VARIÁVEIS DE CORES (MODO CLARO)
+   ========================================================== */
+:root {
+  --bg-body: #f4f7f6;
+  --bg-container: #ffffff;
+  --text-main: #333333;
+  --text-muted: #7f8c8d;
+  --border-color: #e0e0e0;
+  --border-input: #cccccc;
+  --bg-input: #ffffff;
+  --bg-header: #f8f9fa;
+  --bg-lote: #e8f4f8;
+  --aba-inativa: #e2e8f0;
+  --aba-hover: #cbd5e1;
+  --aba-ativa: #ffffff;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --th-shadow:
+    inset 0 1px 0 #e0e0e0, inset 0 -2px 0 #bdc3c7, inset -1px 0 0 #e0e0e0, inset 1px 0 0 #e0e0e0;
+}
+
+/* ==========================================================
+   VARIÁVEIS DE CORES (MODO ESCURO)
+   ========================================================== */
+[data-theme='dark'] {
+  --bg-body: #121212;
+  --bg-container: #1e1e1e;
+  --text-main: #e0e0e0;
+  --text-muted: #aaaaaa;
+  --border-color: #333333;
+  --border-input: #444444;
+  --bg-input: #2a2a2a;
+  --bg-header: #2a2a2a;
+  --bg-lote: #2c3e50;
+  --aba-inativa: #2a2a2a;
+  --aba-hover: #3a3a3a;
+  --aba-ativa: #1e1e1e;
+  --shadow-color: rgba(0, 0, 0, 0.5);
+  --th-shadow: inset 0 1px 0 #444, inset 0 -2px 0 #555, inset -1px 0 0 #444, inset 1px 0 0 #444;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -6,24 +47,26 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
   padding: 0;
-  background-color: #f4f7f6;
-  color: #333;
+  background-color: var(--bg-body);
+  color: var(--text-main);
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  transition:
+    background-color 0.3s,
+    color 0.3s;
 }
 
-/* Adicionado position: relative para ser a âncora das abas flutuantes */
 .container {
-  background: white;
+  background: var(--bg-container);
   display: flex;
   flex-direction: column;
   height: 100%;
   width: 100%;
   position: relative;
+  transition: background-color 0.3s;
 }
 
-/* AUMENTADO o padding-bottom (90px) para que a última linha da tabela não fique eternamente escondida debaixo das abas */
 .conteudo-principal {
   flex: 1;
   overflow-y: auto;
@@ -32,15 +75,15 @@ body {
 
 h2 {
   margin-top: 20px;
-  color: #2c3e50;
-  border-bottom: 2px solid #eee;
+  color: var(--text-main);
+  border-bottom: 2px solid var(--border-color);
   padding-bottom: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-/* Cards de Resumo */
+/* Cards de Resumo & Barra de Progresso */
 .cards-resumo {
   display: flex;
   gap: 20px;
@@ -49,19 +92,21 @@ h2 {
 }
 .card {
   flex: 1;
-  background: white;
+  background: var(--bg-container);
   border-radius: 8px;
   padding: 15px 20px;
   display: flex;
   align-items: center;
   gap: 15px;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
-  transition: transform 0.2s;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px var(--shadow-color);
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 .card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 8px 15px var(--shadow-color);
 }
 .card i {
   font-size: 28px;
@@ -76,6 +121,10 @@ h2 {
   background-color: #fce4ec;
   color: #c2185b;
 }
+.card-sem-op i {
+  background-color: #fff3cd;
+  color: #d35400;
+}
 .card-pago i {
   background-color: #e8f5e9;
   color: #388e3c;
@@ -86,7 +135,7 @@ h2 {
 }
 .card-titulo {
   font-size: 11px;
-  color: #7f8c8d;
+  color: var(--text-muted);
   font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -94,11 +143,25 @@ h2 {
 .card-valor {
   font-size: 26px;
   font-weight: 900;
-  color: #2c3e50;
+  color: var(--text-main);
   margin-top: 2px;
 }
 
-/* Formulários, Botões e Filtros */
+.progress-bar-bg {
+  width: 100%;
+  background-color: var(--border-color);
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background-color: #27ae60;
+  width: 0%;
+  transition: width 0.5s ease;
+}
+
+/* Formulários */
 .form-row {
   display: flex;
   gap: 10px;
@@ -116,34 +179,47 @@ h2 {
   font-size: 12px;
   font-weight: bold;
   margin-bottom: 4px;
-  color: #666;
+  color: var(--text-muted);
 }
 input,
 select {
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-input);
   border-radius: 5px;
   outline: none;
-  transition: border 0.3s;
+  background-color: var(--bg-input);
+  color: var(--text-main);
+  transition:
+    border 0.3s,
+    box-shadow 0.3s;
 }
 input:focus,
 select:focus {
   border-color: #3498db;
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
 }
+
 .btn-container {
   display: flex;
   gap: 10px;
   margin-top: 10px;
-  border-bottom: 2px solid #eee;
+  border-bottom: 2px solid var(--border-color);
   padding-bottom: 20px;
 }
+
+/* Botões */
 button {
   padding: 10px 20px;
-  border: none;
+  border: 1px solid rgba(0, 0, 0, 0.05);
   border-radius: 5px;
   cursor: pointer;
   font-weight: bold;
-  transition: background 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px var(--shadow-color);
 }
 .btn-add {
   background-color: #3498db;
@@ -167,23 +243,24 @@ button {
   border-radius: 4px;
   margin-right: 5px;
 }
+
 .filtros-container {
-  background-color: #fdfdfd;
+  background-color: var(--bg-body);
   padding: 15px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   margin-top: 20px;
+  box-shadow: 0 2px 5px var(--shadow-color);
 }
 .filtros-container h4 {
   margin: 0 0 10px 0;
-  color: #555;
+  color: var(--text-main);
 }
 .filtros-container select {
   padding: 6px;
   font-size: 13px;
   flex: 1;
 }
-
 .input-inline {
   width: 100%;
   padding: 6px;
@@ -192,16 +269,8 @@ button {
   font-size: 13px;
   font-family: inherit;
 }
-.input-inline:focus {
-  box-shadow: 0 0 3px #3498db;
-}
 
-/* ==========================================================
-   NOVO: SUB-ABAS (MESES) E ORDENAÇÃO DA TABELA
-   ========================================================== */
-/* ==========================================================
-   NOVO: SUB-ABAS (MESES) E ORDENAÇÃO DA TABELA
-   ========================================================== */
+/* Sub-Abas (Meses) */
 .sub-abas-container {
   display: flex;
   align-items: center;
@@ -215,75 +284,73 @@ button {
   display: flex;
   gap: 8px;
 }
-
 .sub-aba {
   padding: 6px 15px;
-  background-color: #f1f3f4;
-  border: 1px solid #dcdde1;
+  background-color: var(--aba-inativa);
+  border: 1px solid var(--border-color);
   border-bottom: none;
   border-radius: 8px 8px 0 0;
-  cursor: grab; /* Mãozinha aberta */
+  cursor: grab;
   font-size: 13px;
   font-weight: bold;
-  color: #7f8c8d;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 6px;
   transition: all 0.2s ease;
-
-  /* Impede a seleção de texto ao arrastar */
   user-select: none;
   -webkit-user-select: none;
+  box-shadow: 0 -2px 4px var(--shadow-color);
 }
-
-/* Cursor de mão fechada ao segurar a sub-aba */
 .sub-aba:active {
   cursor: grabbing;
 }
-
-/* Visual de quando uma sub-aba está passando por cima da outra */
 .sub-aba.drag-over {
   opacity: 0.6;
   border-left: 3px dashed #3498db;
   border-right: 3px dashed #3498db;
 }
-
+.sub-aba:hover {
+  background-color: var(--aba-hover);
+}
 .sub-aba.ativa {
-  background-color: #f8f9fa;
+  background-color: var(--aba-ativa);
   color: #2980b9;
   border-top: 3px solid #2980b9;
-  border-bottom: 2px solid #f8f9fa;
+  border-left: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  border-bottom: 2px solid var(--aba-ativa);
   position: relative;
   z-index: 11;
+  box-shadow: 0 -4px 8px var(--shadow-color);
 }
 .btn-novo-mes {
   padding: 5px 10px;
-  background-color: #f39c12;
   color: white;
   border-radius: 4px;
   font-size: 11px;
   margin-bottom: 2px;
 }
 
+/* Tabela */
 .th-sortable {
   cursor: pointer;
   transition: background 0.2s;
   user-select: none;
 }
 .th-sortable:hover {
-  background-color: #e2e6ea !important;
+  background-color: var(--aba-hover) !important;
 }
 .th-sortable i {
   font-size: 11px;
   margin-left: 5px;
-  color: #bdc3c7;
+  color: var(--text-muted);
 }
 .th-sortable.sorted-asc i,
 .th-sortable.sorted-desc i {
   color: #2980b9;
 }
 
-/* Tabela */
 table {
   width: 100%;
   border-collapse: separate;
@@ -295,40 +362,60 @@ table {
 td {
   padding: 12px 10px;
   text-align: left;
-  border-bottom: 1px solid #e0e0e0;
-  border-right: 1px solid #e0e0e0;
-  background-color: white;
+  border-bottom: 1px solid var(--table-border);
+  border-right: 1px solid var(--table-border);
+  background-color: var(--bg-container);
 }
 td:first-child {
-  border-left: 1px solid #e0e0e0;
+  border-left: 1px solid var(--table-border);
 }
 
 th {
   padding: 14px 10px;
   text-align: left;
-  background-color: #f8f9fa !important;
+  background-color: var(--bg-header) !important;
   font-weight: bold;
-  color: #333;
+  color: var(--text-main);
   position: sticky;
   top: 0;
   z-index: 10;
   border: none;
-  box-shadow:
-    inset 0 1px 0 #e0e0e0,
-    inset 0 -2px 0 #bdc3c7,
-    inset -1px 0 0 #e0e0e0,
-    inset 1px 0 0 #e0e0e0;
+  box-shadow: var(--th-shadow);
   background-clip: padding-box;
 }
-
 .coluna-acao {
   min-width: 90px;
   text-align: center;
 }
 
-/* Formatações Condicionais */
+/* Formatação Condicional na Tabela e Menu */
+.status-dropdown {
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  background-color: transparent;
+  cursor: pointer;
+  width: 100%;
+  color: inherit;
+  font-weight: inherit;
+  transition: all 0.2s;
+}
+.status-dropdown:hover {
+  border-color: #bdc3c7;
+  background-color: var(--bg-input);
+}
+.status-dropdown:focus {
+  border-color: #3498db;
+  outline: none;
+  background-color: var(--bg-input);
+}
+
+/* Para as cores condicionais, mantemos as mesmas no modo claro, mas no dark suavizamos a opacidade */
 .bg-bege {
   background-color: #f5f5dc !important;
+  color: #333;
 }
 .bg-vermelho {
   background-color: #fadbd8 !important;
@@ -341,44 +428,115 @@ th {
   font-weight: bold;
 }
 
-/* ==========================================================
-   ABAS - FLUTUANTES ("OVERLAY" POR CIMA DA TABELA)
-   ========================================================== */
+[data-theme='dark'] .bg-bege {
+  background-color: #4a4a3a !important;
+  color: #eee;
+}
+[data-theme='dark'] .bg-vermelho {
+  background-color: #4a2a2a !important;
+  color: #ff9999;
+}
+[data-theme='dark'] .bg-verde {
+  background-color: #2a4a3a !important;
+  color: #99ff99;
+}
+
+.row-group-header {
+  background-color: var(--bg-header) !important;
+}
+.row-group-header td {
+  font-weight: bold;
+  color: var(--text-main);
+  border-bottom: 2px solid var(--border-color) !important;
+}
+
+/* Modais */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.modal-content {
+  background: var(--bg-container);
+  border-radius: 10px;
+  width: 90%;
+  max-width: 1100px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 25px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-header);
+  border-radius: 10px 10px 0 0;
+}
+.modal-header h3 {
+  margin: 0;
+  color: var(--text-main);
+}
+.btn-close-modal {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s;
+  box-shadow: none !important;
+}
+.btn-close-modal:hover {
+  color: #e74c3c;
+  transform: none !important;
+}
+.modal-body {
+  padding: 20px 25px 0 25px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+}
+
+/* Abas Flutuantes Rodapé */
 .abas-container {
-  position: absolute; /* Arranca a caixa do chão e faz flutuar */
+  position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
-  background-color: transparent; /* TOTALMENTE transparente */
+  background-color: transparent;
   display: flex;
   align-items: flex-end;
   padding: 0 40px 15px 40px;
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  z-index: 50; /* Garante que fique por cima da tabela */
-
-  /* A MÁGICA: O mouse "atravessa" a caixa transparente e clica na tabela lá atrás! */
+  z-index: 50;
   pointer-events: none;
 }
-
-/* Devolve o clique para os botões e abas (que estão dentro da caixa "fantasma") */
 .lista-abas,
 .btn-nova-aba,
 .btn-excel,
-button[onclick='window.print()'] {
+.acoes-finais {
   pointer-events: auto;
 }
-
 .abas-container::-webkit-scrollbar {
   height: 6px;
   pointer-events: auto;
 }
 .abas-container::-webkit-scrollbar-thumb {
-  background-color: #bdc3c7;
+  background-color: var(--text-muted);
   border-radius: 4px;
 }
-
 .lista-abas {
   display: flex;
   gap: 8px;
@@ -389,45 +547,44 @@ button[onclick='window.print()'] {
   align-items: center;
   gap: 8px;
   padding: 10px 18px;
-  background-color: #e2e8f0;
-  border: none;
+  background-color: var(--aba-inativa);
+  border: 1px solid var(--border-color);
+  border-bottom: none;
   border-radius: 10px 10px 0 0;
-  cursor: pointer;
+  cursor: grab;
   font-weight: bold;
-  color: #64748b;
+  color: var(--text-muted);
   transition: all 0.2s ease;
-  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
-
-  /* Impede a seleção de texto ao arrastar */
+  box-shadow: 0 -2px 6px var(--shadow-color);
   user-select: none;
   -webkit-user-select: none;
 }
-
-/* Cursor de mão fechada ao segurar a aba */
 .aba:active {
   cursor: grabbing;
 }
-
-/* Visual de quando uma aba está passando por cima da outra */
 .aba.drag-over {
   opacity: 0.6;
   border-left: 3px dashed #3498db;
   border-right: 3px dashed #3498db;
 }
-
 .aba:hover {
-  background-color: #cbd5e1;
-  color: #334155;
+  background-color: var(--aba-hover);
+  color: var(--text-main);
   transform: translateY(-2px);
+  box-shadow: 0 -4px 8px var(--shadow-color);
 }
-
 .aba.ativa {
-  background-color: white;
+  background-color: var(--aba-ativa);
   color: #2c3e50;
-  box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.15); /* Sombra mais destacada */
+  border: 1px solid var(--border-color);
+  border-bottom: none;
+  box-shadow: 0 -6px 16px var(--shadow-color);
   transform: translateY(0);
   position: relative;
   z-index: 2;
+}
+[data-theme='dark'] .aba.ativa {
+  color: #3498db;
 }
 
 .aba-acoes {
@@ -439,54 +596,61 @@ button[onclick='window.print()'] {
 }
 .btn-aba-acao {
   background: none;
-  border: none;
+  border: none !important;
+  box-shadow: none !important;
   cursor: pointer;
   font-size: 11px;
   padding: 3px;
-  color: #95a5a6;
+  color: var(--text-muted);
   transition: color 0.2s;
 }
 .btn-aba-acao:hover {
   color: #e74c3c;
+  transform: none !important;
 }
 .btn-aba-acao.edit:hover {
   color: #f39c12;
 }
-
-/* Sombra e visual dos botões laterais para eles não se misturarem na tabela passando atrás */
 .btn-nova-aba,
 .btn-excel,
 button[onclick='window.print()'] {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 6px var(--shadow-color);
 }
 
-.btn-nova-aba {
-  padding: 5px 10px;
-  background-color: #2ecc71;
-  color: white;
-  border-radius: 5px;
-  font-size: 12px;
-  margin: 0 0 5px 0;
+/* SweetAlert Dark Mode Override */
+[data-theme='dark'] .swal2-popup {
+  background: var(--bg-container);
+  color: var(--text-main);
 }
-.btn-excel {
-  margin: 0;
+[data-theme='dark'] .swal2-title {
+  color: var(--text-main);
+}
+[data-theme='dark'] .swal2-html-container {
+  color: var(--text-muted);
+}
+[data-theme='dark'] .swal2-input,
+[data-theme='dark'] .swal2-select {
+  background: var(--bg-input);
+  color: var(--text-main);
+  border-color: var(--border-input);
 }
 
-/* ==========================================================
-   MODO DE IMPRESSÃO
-   ========================================================== */
+/* Modo de Impressão */
 @media print {
   .form-row,
   .btn-container,
   .filtros-container,
   .abas-container,
+  .sub-abas-container,
+  .cards-resumo,
+  .acoes-lote-container,
   #status-conexao,
   #btn-conectar,
   #btn-desconectar,
+  #btn-tema,
   .coluna-acao {
     display: none !important;
   }
-
   body,
   .container,
   .conteudo-principal {
@@ -497,7 +661,6 @@ button[onclick='window.print()'] {
     box-shadow: none !important;
     background-color: white !important;
   }
-
   table {
     border-collapse: collapse !important;
     margin-top: 0;
@@ -507,21 +670,22 @@ button[onclick='window.print()'] {
     border: 1px solid #000 !important;
     padding: 6px !important;
     font-size: 11px !important;
+    color: black !important;
   }
-
+  th:first-child,
+  td:first-child {
+    display: none !important;
+  }
   th {
     background-color: #f2f2f2 !important;
     position: static !important;
     box-shadow: none !important;
     outline: none !important;
-    color: black !important;
   }
-
   th.coluna-acao,
   td.coluna-acao {
     display: none !important;
   }
-
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
