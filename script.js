@@ -1,6 +1,3 @@
-// ==========================================
-// CONFIGURAÇÃO DO FIREBASE (NUVEM)
-// ==========================================
 const firebaseConfig = {
   apiKey: 'AIzaSyAIQrfYY0QvtyN7qj61uLhq6Xyb4Eyn3ZA',
   authDomain: 'controliqui-smebji.firebaseapp.com',
@@ -11,17 +8,16 @@ const firebaseConfig = {
   appId: '1:659644181097:web:82b55c5eba921bc06e10f8',
 };
 
-// Inicializa a Nuvem
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
+const auth = firebase.auth();
 
-// ==========================================
-// VARIÁVEIS GLOBAIS DO SISTEMA
-// ==========================================
+// Instância Fantasma para criar usuários sem deslogar o Admin
+const adminAuthApp = firebase.initializeApp(firebaseConfig, 'AdminAuthApp');
+
 let dadosAbas = { 'Assunto Geral': { Janeiro: [] } };
 let abaAtiva = 'Assunto Geral';
 let mesAtivo = 'Janeiro';
-
 let abaArrastada = null;
 let subAbaArrastada = null;
 let linhaEmEdicao = null;
@@ -29,12 +25,16 @@ let colunaSort = 'id';
 let ordemSort = 'asc';
 let IDsSelecionados = new Set();
 let dadosRelatorioGeral = [];
-
 let chartStatus = null;
 let chartEmpresas = null;
 
+// Variáveis de Autenticação
+let currentUser = null;
+let currentRole = 'guest';
+let currentUserName = '';
+
 // ==========================================
-// TEMA E MEMÓRIA DE NAVEGAÇÃO
+// TEMA E MÁSCARAS
 // ==========================================
 function toggleTema() {
   const isDark = document.body.getAttribute('data-theme') === 'dark';
@@ -48,9 +48,6 @@ function toggleTema() {
   if (document.getElementById('modal-dashboard').style.display === 'flex') atualizarGraficos();
 }
 
-// ==========================================
-// MÁSCARA E TECLAS
-// ==========================================
 function mascaraProcesso(e) {
   let input = e.target;
   if (
@@ -75,133 +72,355 @@ function mascaraProcesso(e) {
   input.value = formatted;
 }
 
-document.addEventListener('keydown', function (e) {
-  if (linhaEmEdicao !== null) {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      cancelarEdicaoInline();
-      return;
-    }
-    if (e.key === 'Enter') {
-      if (e.target.classList.contains('input-inline')) {
-        e.preventDefault();
-        salvarEdicaoInline(linhaEmEdicao);
-        return;
-      }
-    }
-  }
-  if (e.key === 'Enter') {
-    const noFormulario = e.target.closest('.form-row') && !e.target.closest('.filtros-container');
-    if (noFormulario) {
-      e.preventDefault();
-      adicionarRegistro();
-    }
-  }
-});
-
 // ==========================================
-// 1. INICIALIZAÇÃO E COMUNICAÇÃO COM O FIREBASE
+// 1. STARTUP, AUTH & LOGS
 // ==========================================
 window.onload = () => {
   if (localStorage.getItem('tema') === 'dark') document.body.setAttribute('data-theme', 'dark');
 
-  // Ouve as mudanças no Firebase em Tempo Real
+  // Listener de Autenticação
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      currentUser = user;
+      database
+        .ref('usuarios/' + user.uid)
+        .once('value')
+        .then((snap) => {
+          if (snap.exists()) {
+            currentRole = snap.val().cargo;
+            currentUserName = snap.val().nome;
+            aplicarInterfaceUsuario();
+          } else {
+            // MÁGICA: O primeiro a entrar vira Admin Geral automaticamente
+            database
+              .ref('usuarios')
+              .once('value')
+              .then((usersSnap) => {
+                if (!usersSnap.exists()) {
+                  currentRole = 'admin_geral';
+                  currentUserName = 'Administrador Master';
+                  database
+                    .ref('usuarios/' + user.uid)
+                    .set({ email: user.email, nome: currentUserName, cargo: currentRole });
+                } else {
+                  currentRole = 'guest'; // Falha de segurança, bloqueia.
+                }
+                aplicarInterfaceUsuario();
+              });
+          }
+        });
+    } else {
+      currentUser = null;
+      currentRole = 'guest';
+      currentUserName = '';
+      aplicarInterfaceUsuario();
+    }
+  });
+
   const dbRef = database.ref('sistema');
   dbRef.on('value', (snapshot) => {
     const data = snapshot.val();
-
     if (data && data.abas) {
       dadosAbas = data.abas;
-
       let abaMemoria = localStorage.getItem('ultimaAba');
       abaAtiva =
         abaMemoria && dadosAbas[abaMemoria] ? abaMemoria : data.ativa || Object.keys(dadosAbas)[0];
-
       let mesMemoria = localStorage.getItem('ultimoMes');
       mesAtivo =
         mesMemoria && dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesMemoria]
           ? mesMemoria
           : Object.keys(dadosAbas[abaAtiva])[0] || 'Geral';
     } else {
-      // Primeira vez abrindo o sistema ou banco totalmente vazio
       dadosAbas = { 'Assunto Geral': { Janeiro: [] } };
       abaAtiva = 'Assunto Geral';
       mesAtivo = 'Janeiro';
     }
-
     renderizarAbas();
     renderizarSubAbas();
     renderizarTabela();
     atualizarAutocompletarAba();
-
     const statusEl = document.getElementById('status-conexao');
-    statusEl.innerHTML = '<i class="fa-solid fa-cloud"></i> Online (Tempo Real)';
+    statusEl.innerHTML = '<i class="fa-solid fa-cloud"></i> Online';
     statusEl.style.color = '#27ae60';
     statusEl.style.borderColor = '#27ae60';
   });
 };
 
+function aplicarInterfaceUsuario() {
+  document.body.setAttribute('data-role', currentRole); // O CSS faz a mágica de esconder tudo
+
+  if (currentRole !== 'guest') {
+    document.getElementById('nome-usuario-logado').style.display = 'inline';
+    document.getElementById('nome-usuario-logado').innerText =
+      `Olá, ${currentUserName.split(' ')[0]}`;
+    document.getElementById('btn-login').style.display = 'none';
+    document.getElementById('btn-logout').style.display = 'inline-block';
+  } else {
+    document.getElementById('nome-usuario-logado').style.display = 'none';
+    document.getElementById('btn-login').style.display = 'inline-block';
+    document.getElementById('btn-logout').style.display = 'none';
+  }
+
+  if (currentRole === 'admin_geral' || currentRole === 'admin_comum') {
+    document.querySelector('.admin-only').style.display = 'inline-block';
+    document.querySelectorAll('.admin-only').forEach((el) => (el.style.display = 'inline-block'));
+  } else {
+    document.querySelectorAll('.admin-only').forEach((el) => (el.style.display = 'none'));
+  }
+}
+
+// Histórico de Auditoria (Logs)
+function registrarLog(acao, detalhes) {
+  if (currentRole === 'guest') return;
+  const log = {
+    data: new Date().toISOString(),
+    usuario: currentUserName,
+    acao: acao,
+    detalhes: detalhes,
+    local: `${abaAtiva} > ${mesAtivo}`,
+  };
+  database.ref('logs').push(log);
+}
+
 function salvarArquivoAutomaticamente() {
-  // Envia os dados atualizados para a Nuvem
+  if (currentRole === 'guest') return;
   database
     .ref('sistema')
     .set({ abas: dadosAbas, ativa: abaAtiva })
-    .catch((error) => {
-      console.error('Erro ao salvar no Firebase:', error);
-      Swal.fire(
-        'Erro de Conexão',
-        'Não foi possível salvar na nuvem. Verifique sua internet.',
-        'error',
-      );
-    });
-}
-
-function fazerBackupSeguranca() {
-  if (Object.keys(dadosAbas).length === 0) return;
-  const dados = JSON.stringify({ abas: dadosAbas, ativa: abaAtiva }, null, 2);
-  const blob = new Blob([dados], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Backup_Controle_${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  Swal.fire({
-    icon: 'success',
-    title: 'Backup Feito!',
-    text: 'Guarde este arquivo num local seguro.',
-    toast: true,
-    position: 'top-end',
-    timer: 3000,
-  });
-}
-
-// NOVO: Restaurar os dados de um Backup Local direto para a Nuvem
-function restaurarBackup(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function (e) {
-    try {
-      const importado = JSON.parse(e.target.result);
-      if (importado && importado.abas) {
-        dadosAbas = importado.abas;
-        abaAtiva = importado.ativa || Object.keys(dadosAbas)[0];
-        salvarArquivoAutomaticamente();
-        Swal.fire('Restaurado!', 'Seu backup foi enviado para a nuvem com sucesso!', 'success');
-      } else {
-        Swal.fire('Erro', 'O arquivo JSON não possui a estrutura correta.', 'error');
-      }
-    } catch (err) {
-      Swal.fire('Erro', 'Arquivo JSON inválido ou corrompido.', 'error');
-    }
-    document.getElementById('input-restaurar-json').value = '';
-  };
-  reader.readAsText(file);
+    .catch((e) => console.log(e));
 }
 
 // ==========================================
-// 2. SISTEMA DE ABAS E SUB-ABAS
+// FUNÇÕES DE LOGIN E PAINEL ADMIN
+// ==========================================
+function abrirModalLogin() {
+  document.getElementById('modal-login').style.display = 'flex';
+}
+function fecharModalLogin() {
+  document.getElementById('modal-login').style.display = 'none';
+}
+
+function fazerLogin() {
+  const email = document.getElementById('login-email').value;
+  const senha = document.getElementById('login-senha').value;
+  if (!email || !senha) return Swal.fire('Aviso', 'Preencha email e senha', 'warning');
+
+  auth
+    .signInWithEmailAndPassword(email, senha)
+    .then(() => {
+      fecharModalLogin();
+      Swal.fire({
+        icon: 'success',
+        title: 'Login efetuado!',
+        toast: true,
+        position: 'top-end',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    })
+    .catch((error) => Swal.fire('Erro', 'Credenciais inválidas.', 'error'));
+}
+
+function fazerLogout() {
+  auth.signOut();
+  Swal.fire({
+    icon: 'info',
+    title: 'Você saiu.',
+    toast: true,
+    position: 'top-end',
+    timer: 2000,
+    showConfirmButton: false,
+  });
+}
+
+function abrirPainelAdmin() {
+  if (currentRole !== 'admin_geral' && currentRole !== 'admin_comum') return;
+  document.getElementById('modal-admin').style.display = 'flex';
+  mudarAbaAdmin('usuarios');
+}
+function fecharPainelAdmin() {
+  document.getElementById('modal-admin').style.display = 'none';
+}
+
+function mudarAbaAdmin(aba) {
+  document.getElementById('admin-tab-usuarios').style.display =
+    aba === 'usuarios' ? 'block' : 'none';
+  document.getElementById('admin-tab-logs').style.display = aba === 'logs' ? 'block' : 'none';
+  document.getElementById('tab-usuarios-btn').style.borderBottomColor =
+    aba === 'usuarios' ? '#3498db' : 'transparent';
+  document.getElementById('tab-logs-btn').style.borderBottomColor =
+    aba === 'logs' ? '#3498db' : 'transparent';
+
+  if (aba === 'usuarios') renderizarUsuarios();
+  if (aba === 'logs') renderizarLogs();
+}
+
+function renderizarUsuarios() {
+  database
+    .ref('usuarios')
+    .once('value')
+    .then((snap) => {
+      const tbody = document.getElementById('tabela-usuarios-corpo');
+      tbody.innerHTML = '';
+      if (!snap.exists()) return;
+
+      const formatarCargo = (c) =>
+        c === 'admin_geral'
+          ? '<b style="color:#8e44ad">Admin Geral</b>'
+          : c === 'admin_comum'
+            ? '<b style="color:#2980b9">Admin Comum</b>'
+            : 'Usuário Comum';
+
+      snap.forEach((child) => {
+        const u = child.val();
+        let tr = document.createElement('tr');
+
+        // Regra: Admin Comum não pode apagar Admin Geral
+        let btnApagar = `<button onclick="apagarUsuario('${child.key}', '${u.cargo}')" style="padding:4px 8px; background:#e74c3c; color:white; border:none; border-radius:4px;"><i class="fa-solid fa-trash"></i></button>`;
+        if (u.cargo === 'admin_geral' && currentRole !== 'admin_geral') btnApagar = '';
+        if (child.key === currentUser.uid)
+          btnApagar =
+            '<span style="color:#27ae60; font-size:11px; font-weight:bold;">(Você)</span>';
+
+        tr.innerHTML = `<td>${u.nome}</td><td>${u.email}</td><td>${formatarCargo(u.cargo)}</td><td style="text-align:center;">${btnApagar}</td>`;
+        tbody.appendChild(tr);
+      });
+    });
+}
+
+function criarNovoUsuario() {
+  const nome = document.getElementById('novo-user-nome').value.trim();
+  const email = document.getElementById('novo-user-email').value.trim();
+  const senha = document.getElementById('novo-user-senha').value;
+  const cargo = document.getElementById('novo-user-cargo').value;
+
+  if (!nome || !email || senha.length < 6)
+    return Swal.fire(
+      'Aviso',
+      'Preencha tudo corretamente. A senha deve ter 6 caracteres.',
+      'warning',
+    );
+
+  // Usa a instância fantasma para não deslogar o Admin
+  adminAuthApp
+    .auth()
+    .createUserWithEmailAndPassword(email, senha)
+    .then((userCredential) => {
+      const uid = userCredential.user.uid;
+      database
+        .ref('usuarios/' + uid)
+        .set({ nome: nome, email: email, cargo: cargo })
+        .then(() => {
+          registrarLog('Criação de Utilizador', `Criou a conta de ${nome} (${cargo})`);
+          document.getElementById('novo-user-nome').value = '';
+          document.getElementById('novo-user-email').value = '';
+          document.getElementById('novo-user-senha').value = '';
+          renderizarUsuarios();
+          Swal.fire('Sucesso!', 'Utilizador criado.', 'success');
+          adminAuthApp.auth().signOut(); // Limpa a instância fantasma
+        });
+    })
+    .catch((e) => Swal.fire('Erro', e.message, 'error'));
+}
+
+function apagarUsuario(uid, cargoAlvo) {
+  if (cargoAlvo === 'admin_geral' && currentRole !== 'admin_geral')
+    return Swal.fire('Acesso Negado', 'Não tem permissão para apagar o Admin Geral.', 'error');
+  Swal.fire({
+    title: 'Apagar utilizador?',
+    text: 'Ele perderá acesso.',
+    icon: 'warning',
+    showCancelButton: true,
+  }).then((r) => {
+    if (r.isConfirmed) {
+      database
+        .ref('usuarios/' + uid)
+        .remove()
+        .then(() => {
+          registrarLog('Exclusão de Utilizador', `Apagou o utilizador UID: ${uid}`);
+          renderizarUsuarios();
+          Swal.fire('Apagado!', '', 'success');
+        });
+    }
+  });
+}
+
+function renderizarLogs() {
+  const filtro = document.getElementById('filtro-log-texto').value.toLowerCase();
+  database
+    .ref('logs')
+    .orderByChild('data')
+    .limitToLast(100)
+    .once('value')
+    .then((snap) => {
+      const tbody = document.getElementById('tabela-logs-corpo');
+      tbody.innerHTML = '';
+      if (!snap.exists()) return;
+
+      let logs = [];
+      snap.forEach((c) => {
+        logs.push(c.val());
+      });
+      logs.reverse(); // Mais recentes primeiro
+
+      logs.forEach((log) => {
+        if (
+          filtro &&
+          !log.usuario.toLowerCase().includes(filtro) &&
+          !log.detalhes.toLowerCase().includes(filtro) &&
+          !log.acao.toLowerCase().includes(filtro)
+        )
+          return;
+
+        let dataFormatada = new Date(log.data).toLocaleString('pt-BR');
+        let corAcao =
+          log.acao.includes('Exclusão') || log.acao.includes('Apagou')
+            ? '#e74c3c'
+            : log.acao.includes('Adição') || log.acao.includes('Novo')
+              ? '#27ae60'
+              : '#2980b9';
+
+        tbody.innerHTML += `<tr>
+                <td style="color:#7f8c8d;">${dataFormatada}</td>
+                <td style="font-weight:bold;">${log.usuario}</td>
+                <td><span style="background:${corAcao}; color:white; padding:2px 6px; border-radius:3px; font-size:10px;">${log.acao}</span></td>
+                <td>${log.detalhes} <br><span style="font-size:10px; color:#95a5a6;">Em: ${log.local}</span></td>
+            </tr>`;
+      });
+    });
+}
+
+function limparLogs() {
+  if (currentRole !== 'admin_geral')
+    return Swal.fire('Acesso Negado', 'Só o Admin Geral pode limpar o histórico.', 'error');
+  Swal.fire({
+    title: 'Limpar todo o histórico?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+  }).then((r) => {
+    if (r.isConfirmed) {
+      database
+        .ref('logs')
+        .remove()
+        .then(() => {
+          renderizarLogs();
+          Swal.fire('Limpo', '', 'success');
+        });
+    }
+  });
+}
+
+// Atalho de Teclado Secreto para o Painel (Ctrl + Shift + P)
+document.addEventListener('keydown', function (e) {
+  if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+    e.preventDefault();
+    abrirPainelAdmin();
+  }
+});
+
+// ==========================================
+// 2. SISTEMA DE ABAS E SUB-ABAS (COM LOGS)
 // ==========================================
 function renderizarAbas() {
   const listaAbas = document.getElementById('lista-abas');
@@ -209,13 +428,8 @@ function renderizarAbas() {
   Object.keys(dadosAbas).forEach((nomeAba) => {
     const divAba = document.createElement('div');
     divAba.className = `aba ${nomeAba === abaAtiva ? 'ativa' : ''}`;
-    divAba.setAttribute('draggable', true);
-    divAba.innerHTML = `
-        <span class="titulo-aba">${nomeAba}</span>
-        <div class="aba-acoes">
-            <button class="btn-aba-acao edit" onclick="event.stopPropagation(); editarNomeAba('${nomeAba}')" title="Renomear"><i class="fa-solid fa-pen"></i></button>
-            <button class="btn-aba-acao" onclick="event.stopPropagation(); excluirAba('${nomeAba}')" title="Excluir"><i class="fa-solid fa-trash"></i></button>
-        </div>`;
+    divAba.setAttribute('draggable', currentRole !== 'guest');
+    divAba.innerHTML = `<span class="titulo-aba">${nomeAba}</span><div class="aba-acoes"><button class="btn-aba-acao edit" onclick="event.stopPropagation(); editarNomeAba('${nomeAba}')"><i class="fa-solid fa-pen"></i></button><button class="btn-aba-acao" onclick="event.stopPropagation(); excluirAba('${nomeAba}')"><i class="fa-solid fa-trash"></i></button></div>`;
 
     divAba.onclick = () => {
       abaAtiva = nomeAba;
@@ -230,42 +444,45 @@ function renderizarAbas() {
       renderizarTabela();
     };
 
-    divAba.addEventListener('dragstart', function (e) {
-      abaArrastada = nomeAba;
-      e.dataTransfer.effectAllowed = 'move';
-      setTimeout(() => (this.style.opacity = '0.4'), 0);
-    });
-    divAba.addEventListener('dragend', function () {
-      this.style.opacity = '1';
-      document.querySelectorAll('.aba').forEach((a) => a.classList.remove('drag-over'));
-      abaArrastada = null;
-    });
-    divAba.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      return false;
-    });
-    divAba.addEventListener('dragenter', function (e) {
-      if (nomeAba !== abaArrastada) this.classList.add('drag-over');
-    });
-    divAba.addEventListener('dragleave', function () {
-      this.classList.remove('drag-over');
-    });
-    divAba.addEventListener('drop', function (e) {
-      e.stopPropagation();
-      this.classList.remove('drag-over');
-      if (abaArrastada !== nomeAba) {
-        const chaves = Object.keys(dadosAbas);
-        chaves.splice(chaves.indexOf(abaArrastada), 1);
-        chaves.splice(chaves.indexOf(nomeAba), 0, abaArrastada);
-        const novo = {};
-        chaves.forEach((c) => (novo[c] = dadosAbas[c]));
-        dadosAbas = novo;
-        salvarArquivoAutomaticamente();
-        renderizarAbas();
-      }
-      return false;
-    });
+    if (currentRole !== 'guest') {
+      divAba.addEventListener('dragstart', function (e) {
+        abaArrastada = nomeAba;
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => (this.style.opacity = '0.4'), 0);
+      });
+      divAba.addEventListener('dragend', function () {
+        this.style.opacity = '1';
+        document.querySelectorAll('.aba').forEach((a) => a.classList.remove('drag-over'));
+        abaArrastada = null;
+      });
+      divAba.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+      });
+      divAba.addEventListener('dragenter', function (e) {
+        if (nomeAba !== abaArrastada) this.classList.add('drag-over');
+      });
+      divAba.addEventListener('dragleave', function () {
+        this.classList.remove('drag-over');
+      });
+      divAba.addEventListener('drop', function (e) {
+        e.stopPropagation();
+        this.classList.remove('drag-over');
+        if (abaArrastada !== nomeAba) {
+          const chaves = Object.keys(dadosAbas);
+          chaves.splice(chaves.indexOf(abaArrastada), 1);
+          chaves.splice(chaves.indexOf(nomeAba), 0, abaArrastada);
+          const novo = {};
+          chaves.forEach((c) => (novo[c] = dadosAbas[c]));
+          dadosAbas = novo;
+          registrarLog('Ordenação', `Reordenou o assunto ${abaArrastada}`);
+          salvarArquivoAutomaticamente();
+          renderizarAbas();
+        }
+        return false;
+      });
+    }
     listaAbas.appendChild(divAba);
   });
 }
@@ -278,13 +495,8 @@ function renderizarSubAbas() {
   Object.keys(dadosAbas[abaAtiva]).forEach((nomeMes) => {
     const divMes = document.createElement('div');
     divMes.className = `sub-aba ${nomeMes === mesAtivo ? 'ativa' : ''}`;
-    divMes.setAttribute('draggable', true);
-    divMes.innerHTML = `
-            <span>${nomeMes}</span>
-            <div class="aba-acoes" style="display: ${nomeMes === mesAtivo ? 'flex' : 'none'}">
-                <button class="btn-aba-acao edit" onclick="event.stopPropagation(); editarNomeMes('${nomeMes}')" title="Renomear"><i class="fa-solid fa-pen"></i></button>
-                <button class="btn-aba-acao" onclick="event.stopPropagation(); excluirMes('${nomeMes}')" title="Excluir"><i class="fa-solid fa-trash"></i></button>
-            </div>`;
+    divMes.setAttribute('draggable', currentRole !== 'guest');
+    divMes.innerHTML = `<span>${nomeMes}</span><div class="aba-acoes" style="display: ${nomeMes === mesAtivo ? 'flex' : 'none'}"><button class="btn-aba-acao edit" onclick="event.stopPropagation(); editarNomeMes('${nomeMes}')"><i class="fa-solid fa-pen"></i></button><button class="btn-aba-acao" onclick="event.stopPropagation(); excluirMes('${nomeMes}')"><i class="fa-solid fa-trash"></i></button></div>`;
 
     divMes.onclick = () => {
       mesAtivo = nomeMes;
@@ -295,56 +507,55 @@ function renderizarSubAbas() {
       renderizarTabela();
     };
 
-    divMes.addEventListener('dragstart', function (e) {
-      subAbaArrastada = nomeMes;
-      e.dataTransfer.effectAllowed = 'move';
-      setTimeout(() => (this.style.opacity = '0.4'), 0);
-    });
-    divMes.addEventListener('dragend', function () {
-      this.style.opacity = '1';
-      document.querySelectorAll('.sub-aba').forEach((a) => a.classList.remove('drag-over'));
-      subAbaArrastada = null;
-    });
-    divMes.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      return false;
-    });
-    divMes.addEventListener('dragenter', function (e) {
-      if (nomeMes !== subAbaArrastada) this.classList.add('drag-over');
-    });
-    divMes.addEventListener('dragleave', function () {
-      this.classList.remove('drag-over');
-    });
-    divMes.addEventListener('drop', function (e) {
-      e.stopPropagation();
-      this.classList.remove('drag-over');
-      if (subAbaArrastada !== nomeMes) reordenarSubAbas(subAbaArrastada, nomeMes);
-      return false;
-    });
+    if (currentRole !== 'guest') {
+      divMes.addEventListener('dragstart', function (e) {
+        subAbaArrastada = nomeMes;
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => (this.style.opacity = '0.4'), 0);
+      });
+      divMes.addEventListener('dragend', function () {
+        this.style.opacity = '1';
+        document.querySelectorAll('.sub-aba').forEach((a) => a.classList.remove('drag-over'));
+        subAbaArrastada = null;
+      });
+      divMes.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+      });
+      divMes.addEventListener('dragenter', function (e) {
+        if (nomeMes !== subAbaArrastada) this.classList.add('drag-over');
+      });
+      divMes.addEventListener('dragleave', function () {
+        this.classList.remove('drag-over');
+      });
+      divMes.addEventListener('drop', function (e) {
+        e.stopPropagation();
+        this.classList.remove('drag-over');
+        if (subAbaArrastada !== nomeMes) {
+          const chaves = Object.keys(dadosAbas[abaAtiva]);
+          chaves.splice(chaves.indexOf(subAbaArrastada), 1);
+          chaves.splice(chaves.indexOf(nomeMes), 0, subAbaArrastada);
+          const novoObjetoMeses = {};
+          chaves.forEach((chave) => {
+            novoObjetoMeses[chave] = dadosAbas[abaAtiva][chave];
+          });
+          dadosAbas[abaAtiva] = novoObjetoMeses;
+          registrarLog('Ordenação', `Reordenou o mês ${subAbaArrastada}`);
+          salvarArquivoAutomaticamente();
+          renderizarSubAbas();
+        }
+        return false;
+      });
+    }
     listaMeses.appendChild(divMes);
   });
 }
 
-function reordenarSubAbas(mesOrigem, mesDestino) {
-  const chaves = Object.keys(dadosAbas[abaAtiva]);
-  chaves.splice(chaves.indexOf(mesOrigem), 1);
-  chaves.splice(chaves.indexOf(mesDestino), 0, mesOrigem);
-  const novoObjetoMeses = {};
-  chaves.forEach((chave) => {
-    novoObjetoMeses[chave] = dadosAbas[abaAtiva][chave];
-  });
-  dadosAbas[abaAtiva] = novoObjetoMeses;
-  salvarArquivoAutomaticamente();
-  renderizarSubAbas();
-}
-
 async function duplicarMes() {
+  if (currentRole === 'guest') return;
   const mesesDisponiveis = Object.keys(dadosAbas[abaAtiva]);
-  if (mesesDisponiveis.length === 0) {
-    Swal.fire('Erro', 'Não há meses para copiar.', 'error');
-    return;
-  }
+  if (mesesDisponiveis.length === 0) return Swal.fire('Erro', 'Não há meses.', 'error');
   let optionsHtml = '';
   mesesDisponiveis.forEach((m) => {
     optionsHtml += `<option value="${m}" ${m === mesAtivo ? 'selected' : ''}>${m}</option>`;
@@ -352,39 +563,17 @@ async function duplicarMes() {
 
   const { value: formValues } = await Swal.fire({
     title: 'Copiar Mês',
-    html: `
-            <div style="text-align: left; font-size: 14px;">
-                <label style="font-weight: bold; color: var(--text-main);">1. Qual mês deseja copiar?</label>
-                <select id="swal-origem" class="swal2-select" style="width: 100%; margin: 5px 0 15px 0; padding: 5px;">${optionsHtml}</select>
-                <label style="font-weight: bold; color: var(--text-main);">2. Nome do Novo Mês:</label>
-                <input id="swal-novo-mes" class="swal2-input" placeholder="Ex: Março-26" style="width: 100%; margin: 5px 0 15px 0; box-sizing: border-box;">
-                <label style="font-weight: bold; color: var(--text-main);">3. Quais colunas deseja importar?</label>
-                <div style="margin-top: 5px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: var(--bg-header); padding: 10px; border-radius: 5px; border: 1px solid var(--border-color);">
-                    <label style="cursor: pointer;"><input type="checkbox" id="chk-proc" checked> Processo</label>
-                    <label style="cursor: pointer;"><input type="checkbox" id="chk-emp" checked> Empresa</label>
-                    <label style="cursor: pointer;"><input type="checkbox" id="chk-elem" checked> Elemento</label>
-                    <label style="cursor: pointer;"><input type="checkbox" id="chk-empenho" checked> Empenho</label>
-                    <label style="cursor: pointer;"><input type="checkbox" id="chk-liq"> Liquidação</label>
-                </div>
-            </div>`,
+    html: `<div style="text-align: left; font-size: 14px;"><label>Origem:</label><select id="swal-origem" class="swal2-select" style="width: 100%; margin: 5px 0 15px 0;">${optionsHtml}</select><label>Novo Mês:</label><input id="swal-novo-mes" class="swal2-input" style="width: 100%; margin: 5px 0 15px 0;"><label>Importar:</label><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;"><label><input type="checkbox" id="chk-proc" checked> Processo</label><label><input type="checkbox" id="chk-emp" checked> Empresa</label><label><input type="checkbox" id="chk-elem" checked> Elemento</label><label><input type="checkbox" id="chk-empenho" checked> Empenho</label><label><input type="checkbox" id="chk-liq"> Liquidação</label></div></div>`,
     focusConfirm: false,
     showCancelButton: true,
-    confirmButtonText: 'Criar e Importar',
-    cancelButtonText: 'Cancelar',
     preConfirm: () => {
-      const origem = document.getElementById('swal-origem').value;
-      const novoMes = document.getElementById('swal-novo-mes').value.trim();
-      if (!novoMes) {
-        Swal.showValidationMessage('Digite o nome do novo mês!');
-        return false;
-      }
-      if (dadosAbas[abaAtiva][novoMes]) {
-        Swal.showValidationMessage('Já existe um mês com este nome nesta aba!');
-        return false;
-      }
+      const o = document.getElementById('swal-origem').value;
+      const n = document.getElementById('swal-novo-mes').value.trim();
+      if (!n || dadosAbas[abaAtiva][n])
+        return Swal.showValidationMessage('Nome inválido ou existente!');
       return {
-        origem,
-        novoMes,
+        origem: o,
+        novoMes: n,
         importProc: document.getElementById('chk-proc').checked,
         importEmp: document.getElementById('chk-emp').checked,
         importElem: document.getElementById('chk-elem').checked,
@@ -395,71 +584,63 @@ async function duplicarMes() {
   });
 
   if (formValues) {
-    const { origem, novoMes, importProc, importEmp, importElem, importEmpenho, importLiq } =
-      formValues;
-    dadosAbas[abaAtiva][novoMes] = [];
-    dadosAbas[abaAtiva][origem].forEach((reg, index) => {
-      dadosAbas[abaAtiva][novoMes].push({
+    dadosAbas[abaAtiva][formValues.novoMes] = [];
+    dadosAbas[abaAtiva][formValues.origem].forEach((reg, index) => {
+      dadosAbas[abaAtiva][formValues.novoMes].push({
         id: Date.now() + index,
-        processo: importProc ? reg.processo : '',
-        empresa: importEmp ? reg.empresa : '',
-        elemento: importElem ? reg.elemento : '',
-        empenho: importEmpenho ? reg.empenho : '',
-        liquidacao: importLiq ? reg.liquidacao : '',
+        processo: formValues.importProc ? reg.processo : '',
+        empresa: formValues.importEmp ? reg.empresa : '',
+        elemento: formValues.importElem ? reg.elemento : '',
+        empenho: formValues.importEmpenho ? reg.empenho : '',
+        liquidacao: formValues.importLiq ? reg.liquidacao : '',
         status: 'Aguardando Pagamento',
         op: '',
       });
     });
-    mesAtivo = novoMes;
+    mesAtivo = formValues.novoMes;
     localStorage.setItem('ultimoMes', mesAtivo);
+    registrarLog('Cópia de Mês', `Copiou o mês ${formValues.origem} gerando ${formValues.novoMes}`);
     salvarArquivoAutomaticamente();
     renderizarSubAbas();
     renderizarTabela();
-    Swal.fire(
-      'Pronto!',
-      `O mês "${novoMes}" foi criado com ${dadosAbas[abaAtiva][novoMes].length} processos!`,
-      'success',
-    );
   }
 }
 
 async function editarNomeAba(nomeAtual) {
+  if (currentRole === 'guest') return;
   const { value: novoNome } = await Swal.fire({
-    title: 'Renomear Assunto',
+    title: 'Renomear',
     input: 'text',
     inputValue: nomeAtual,
     showCancelButton: true,
   });
-  if (novoNome && novoNome.trim() !== '' && novoNome !== nomeAtual) {
-    if (!dadosAbas[novoNome]) {
-      dadosAbas[novoNome] = dadosAbas[nomeAtual];
-      delete dadosAbas[nomeAtual];
-      if (abaAtiva === nomeAtual) {
-        abaAtiva = novoNome;
-        localStorage.setItem('ultimaAba', abaAtiva);
-      }
-      salvarArquivoAutomaticamente();
-      renderizarAbas();
-    } else {
-      Swal.fire('Erro', 'Já existe um assunto com este nome.', 'error');
+  if (novoNome && novoNome.trim() !== '' && novoNome !== nomeAtual && !dadosAbas[novoNome]) {
+    dadosAbas[novoNome] = dadosAbas[nomeAtual];
+    delete dadosAbas[nomeAtual];
+    if (abaAtiva === nomeAtual) {
+      abaAtiva = novoNome;
+      localStorage.setItem('ultimaAba', abaAtiva);
     }
+    registrarLog('Edição de Assunto', `Renomeou ${nomeAtual} para ${novoNome}`);
+    salvarArquivoAutomaticamente();
+    renderizarAbas();
   }
 }
 
 function excluirAba(nomeAba) {
+  if (currentRole === 'guest') return;
   if (Object.keys(dadosAbas).length > 1) {
     Swal.fire({
       title: `Excluir "${nomeAba}"?`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
-    }).then((result) => {
-      if (result.isConfirmed) {
+    }).then((r) => {
+      if (r.isConfirmed) {
         delete dadosAbas[nomeAba];
         abaAtiva = Object.keys(dadosAbas)[0];
         mesAtivo = Object.keys(dadosAbas[abaAtiva])[0];
-        localStorage.setItem('ultimaAba', abaAtiva);
-        localStorage.setItem('ultimoMes', mesAtivo);
+        registrarLog('Exclusão de Assunto', `Apagou o assunto ${nomeAba} inteiro`);
         salvarArquivoAutomaticamente();
         renderizarAbas();
         renderizarSubAbas();
@@ -467,130 +648,119 @@ function excluirAba(nomeAba) {
       }
     });
   } else {
-    Swal.fire('Atenção', 'Precisa de ter pelo menos uma aba de assunto.', 'info');
+    Swal.fire('Atenção', 'Mínimo de 1 aba.', 'info');
   }
 }
 
 async function criarNovaAba() {
+  if (currentRole === 'guest') return;
   const { value: nome } = await Swal.fire({
     title: 'Novo Assunto',
     input: 'text',
     showCancelButton: true,
   });
-  if (nome && nome.trim() !== '') {
-    if (!dadosAbas[nome]) {
-      dadosAbas[nome] = { Geral: [] };
-      abaAtiva = nome;
-      mesAtivo = 'Geral';
-      localStorage.setItem('ultimaAba', abaAtiva);
-      localStorage.setItem('ultimoMes', mesAtivo);
-      salvarArquivoAutomaticamente();
-      renderizarAbas();
-      renderizarSubAbas();
-      renderizarTabela();
-    }
+  if (nome && nome.trim() !== '' && !dadosAbas[nome]) {
+    dadosAbas[nome] = { Geral: [] };
+    abaAtiva = nome;
+    mesAtivo = 'Geral';
+    registrarLog('Novo Assunto', `Criou o assunto ${nome}`);
+    salvarArquivoAutomaticamente();
+    renderizarAbas();
+    renderizarSubAbas();
+    renderizarTabela();
   }
 }
 
 async function editarNomeMes(nomeAtual) {
+  if (currentRole === 'guest') return;
   const { value: novoNome } = await Swal.fire({
     title: 'Renomear Mês',
     input: 'text',
     inputValue: nomeAtual,
     showCancelButton: true,
   });
-  if (novoNome && novoNome.trim() !== '' && novoNome !== nomeAtual) {
-    if (!dadosAbas[abaAtiva][novoNome]) {
-      dadosAbas[abaAtiva][novoNome] = dadosAbas[abaAtiva][nomeAtual];
-      delete dadosAbas[abaAtiva][nomeAtual];
-      if (mesAtivo === nomeAtual) {
-        mesAtivo = novoNome;
-        localStorage.setItem('ultimoMes', mesAtivo);
-      }
-      salvarArquivoAutomaticamente();
-      renderizarSubAbas();
-    } else {
-      Swal.fire('Erro', 'Já existe um mês com este nome.', 'error');
+  if (
+    novoNome &&
+    novoNome.trim() !== '' &&
+    novoNome !== nomeAtual &&
+    !dadosAbas[abaAtiva][novoNome]
+  ) {
+    dadosAbas[abaAtiva][novoNome] = dadosAbas[abaAtiva][nomeAtual];
+    delete dadosAbas[abaAtiva][nomeAtual];
+    if (mesAtivo === nomeAtual) {
+      mesAtivo = novoNome;
     }
+    registrarLog('Edição de Mês', `Renomeou mês ${nomeAtual} para ${novoNome}`);
+    salvarArquivoAutomaticamente();
+    renderizarSubAbas();
   }
 }
 
 function excluirMes(nomeMes) {
+  if (currentRole === 'guest') return;
   if (Object.keys(dadosAbas[abaAtiva]).length > 1) {
     Swal.fire({
       title: `Excluir o mês "${nomeMes}"?`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
-    }).then((result) => {
-      if (result.isConfirmed) {
+    }).then((r) => {
+      if (r.isConfirmed) {
         delete dadosAbas[abaAtiva][nomeMes];
         mesAtivo = Object.keys(dadosAbas[abaAtiva])[0];
-        localStorage.setItem('ultimoMes', mesAtivo);
+        registrarLog('Exclusão de Mês', `Apagou o mês ${nomeMes}`);
         salvarArquivoAutomaticamente();
         renderizarSubAbas();
         renderizarTabela();
       }
     });
   } else {
-    Swal.fire('Atenção', 'O assunto precisa de ter pelo menos um mês.', 'info');
+    Swal.fire('Atenção', 'Mínimo de 1 mês.', 'info');
   }
 }
 
 async function criarNovoMes() {
+  if (currentRole === 'guest') return;
   const { value: nome } = await Swal.fire({
     title: 'Novo Mês',
     input: 'text',
-    placeholder: 'Ex: Fevereiro',
     showCancelButton: true,
   });
-  if (nome && nome.trim() !== '') {
-    if (!dadosAbas[abaAtiva][nome]) {
-      dadosAbas[abaAtiva][nome] = [];
-      mesAtivo = nome;
-      localStorage.setItem('ultimoMes', mesAtivo);
-      salvarArquivoAutomaticamente();
-      renderizarSubAbas();
-      renderizarTabela();
-    }
+  if (nome && nome.trim() !== '' && !dadosAbas[abaAtiva][nome]) {
+    dadosAbas[abaAtiva][nome] = [];
+    mesAtivo = nome;
+    registrarLog('Novo Mês', `Criou o mês ${nome}`);
+    salvarArquivoAutomaticamente();
+    renderizarSubAbas();
+    renderizarTabela();
   }
 }
 
 async function agruparAbas() {
+  if (currentRole === 'guest') return;
   const abasDisponiveis = Object.keys(dadosAbas);
-  if (abasDisponiveis.length < 2) {
-    Swal.fire('Atenção', 'Precisa de pelo menos 2 assuntos para os agrupar.', 'info');
-    return;
-  }
+  if (abasDisponiveis.length < 2) return;
   let htmlCheckboxes =
-    '<div style="text-align: left; max-height: 200px; overflow-y: auto; margin-top: 15px; padding: 10px; border: 1px solid var(--border-color); border-radius: 5px; background: var(--bg-header);">';
+    '<div style="text-align: left; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid var(--border-color); border-radius: 5px; background: var(--bg-header);">';
   abasDisponiveis.forEach((aba) => {
-    htmlCheckboxes += `<label style="display: block; margin-bottom: 8px; cursor: pointer; font-size: 14px; color: var(--text-main);"><input type="checkbox" class="swal-aba-checkbox" value="${aba}" style="margin-right: 8px;"> ${aba}</label>`;
+    htmlCheckboxes += `<label style="display: block; margin-bottom: 8px; cursor: pointer;"><input type="checkbox" class="swal-aba-checkbox" value="${aba}"> ${aba}</label>`;
   });
   htmlCheckboxes += '</div>';
 
   const { value: formValues } = await Swal.fire({
     title: 'Agrupar Assuntos',
     html:
-      `<div style="font-size: 14px; text-align: left; margin-bottom: 10px; color: var(--text-main);">Selecione os assuntos que deseja fundir e dê um nome para a nova Aba Principal:</div><input id="swal-input-novo-nome" class="swal2-input" placeholder="Nome do Novo Assunto" style="margin-top: 0;">` +
+      `<input id="swal-input-novo-nome" class="swal2-input" placeholder="Nome do Novo Assunto">` +
       htmlCheckboxes,
     focusConfirm: false,
     showCancelButton: true,
-    confirmButtonText: 'Agrupar Agora',
-    cancelButtonText: 'Cancelar',
     preConfirm: () => {
       const selecionados = Array.from(document.querySelectorAll('.swal-aba-checkbox:checked')).map(
         (cb) => cb.value,
       );
       const novoNome = document.getElementById('swal-input-novo-nome').value.trim();
-      if (selecionados.length === 0) {
-        Swal.showValidationMessage('Selecione pelo menos 1 assunto para agrupar!');
-        return false;
-      }
-      if (!novoNome) {
-        Swal.showValidationMessage('Digite o nome!');
-        return false;
-      }
+      if (selecionados.length === 0 || !novoNome)
+        return Swal.showValidationMessage('Preencha os dados!');
       return { selecionados, novoNome };
     },
   });
@@ -600,12 +770,7 @@ async function agruparAbas() {
     if (!dadosAbas[novoNome]) dadosAbas[novoNome] = {};
     selecionados.forEach((abaAntiga) => {
       Object.keys(dadosAbas[abaAntiga]).forEach((mesAntigo) => {
-        let novoNomeMes = abaAntiga
-          .replace('LIQ. ', '')
-          .replace('LIQ.', '')
-          .replace('Liq. ', '')
-          .replace('LIQ ', '')
-          .trim();
+        let novoNomeMes = abaAntiga.replace('LIQ. ', '').replace('LIQ.', '').trim();
         if (dadosAbas[novoNome][novoNomeMes])
           dadosAbas[novoNome][novoNomeMes] = dadosAbas[novoNome][novoNomeMes].concat(
             dadosAbas[abaAntiga][mesAntigo],
@@ -616,47 +781,38 @@ async function agruparAbas() {
     });
     abaAtiva = novoNome;
     mesAtivo = Object.keys(dadosAbas[novoNome])[0];
-    localStorage.setItem('ultimaAba', abaAtiva);
-    localStorage.setItem('ultimoMes', mesAtivo);
+    registrarLog('Agrupamento', `Agrupou ${selecionados.length} assuntos em ${novoNome}`);
     salvarArquivoAutomaticamente();
     renderizarAbas();
     renderizarSubAbas();
     renderizarTabela();
-    Swal.fire('Sucesso!', 'Assuntos agrupados!', 'success');
   }
 }
 
 async function moverProcessosLote() {
+  if (currentRole === 'guest') return;
   const { value: formValues } = await Swal.fire({
     title: 'Transferência em Lote',
     html: `
         <div style="text-align: left; font-size: 14px;">
-            <p style="margin-bottom:5px; font-weight:bold; color: #e67e22;">1. Procurar na ABA ATUAL processos onde:</p>
-            <select id="swal-move-tipo" class="swal2-select" style="width:100%; padding:5px; margin-bottom:10px;">
-                <option value="empresa">Empresa for igual a</option><option value="processo">Processo for igual a</option><option value="empenho">Empenho for igual a</option><option value="elemento">Elemento for igual a</option>
-            </select>
-            <input id="swal-move-valor" class="swal2-input" placeholder="Digite o valor exato..." style="width:100%; margin: 5px 0 15px 0; box-sizing: border-box;">
-            <p style="margin-bottom:5px; font-weight:bold; color: #27ae60;">2. Mover estes processos para:</p>
-            <select id="swal-move-aba" class="swal2-select" style="width:100%; padding:5px; margin-bottom:10px;">${Object.keys(
+            <select id="swal-move-tipo" class="swal2-select" style="width:100%;"><option value="empresa">Empresa igual a</option><option value="processo">Processo igual a</option><option value="empenho">Empenho igual a</option></select>
+            <input id="swal-move-valor" class="swal2-input" placeholder="Valor exato..." style="width:100%;">
+            <p style="margin-bottom:5px;">Mover para:</p>
+            <select id="swal-move-aba" class="swal2-select" style="width:100%;">${Object.keys(
               dadosAbas,
             )
               .map((a) => `<option value="${a}">${a}</option>`)
               .join('')}</select>
-            <input id="swal-move-mes" class="swal2-input" placeholder="Nome da Sub-Aba/Mês de Destino" style="width:100%; margin: 5px 0 15px 0; box-sizing: border-box;">
+            <input id="swal-move-mes" class="swal2-input" placeholder="Mês Destino" style="width:100%;">
         </div>`,
     focusConfirm: false,
     showCancelButton: true,
-    confirmButtonText: 'Mover Processos',
-    cancelButtonText: 'Cancelar',
     preConfirm: () => {
       const tipo = document.getElementById('swal-move-tipo').value;
       const valor = document.getElementById('swal-move-valor').value.trim();
       const abaDestino = document.getElementById('swal-move-aba').value;
       const mesDestino = document.getElementById('swal-move-mes').value.trim();
-      if (!valor || !mesDestino) {
-        Swal.showValidationMessage('Preencha o valor e o mês!');
-        return false;
-      }
+      if (!valor || !mesDestino) return Swal.showValidationMessage('Preencha tudo!');
       return { tipo, valor, abaDestino, mesDestino };
     },
   });
@@ -670,26 +826,30 @@ async function moverProcessosLote() {
         processosMovidos.push(reg);
       else processosRestantes.push(reg);
     });
-    if (processosMovidos.length === 0) {
-      Swal.fire('Nenhum encontrado', `Nenhum processo coincide com a busca.`, 'info');
-      return;
-    }
+    if (processosMovidos.length === 0)
+      return Swal.fire('Nenhum encontrado', `Nada coincide com a busca.`, 'info');
     if (!dadosAbas[abaDestino][mesDestino]) dadosAbas[abaDestino][mesDestino] = [];
     dadosAbas[abaDestino][mesDestino] = dadosAbas[abaDestino][mesDestino].concat(processosMovidos);
     dadosAbas[abaAtiva][mesAtivo] = processosRestantes;
+    registrarLog(
+      'Transferência Lote',
+      `Moveu ${processosMovidos.length} registos (${tipo}:${valor}) para ${abaDestino}>${mesDestino}`,
+    );
     salvarArquivoAutomaticamente();
     renderizarSubAbas();
     renderizarTabela();
-    Swal.fire('Sucesso!', `${processosMovidos.length} processos movidos!`, 'success');
   }
 }
 
+// Lógica de Checkboxes (Excluir/Mover)
 function atualizarSelecao(checkbox, id) {
+  if (currentRole === 'guest') return;
   if (checkbox.checked) IDsSelecionados.add(id);
   else IDsSelecionados.delete(id);
   verificarBarraLote();
 }
 function toggleSelecionarTodos(checkboxCentral) {
+  if (currentRole === 'guest') return;
   document.querySelectorAll('.chk-linha').forEach((chk) => {
     chk.checked = checkboxCentral.checked;
     const id = parseInt(chk.value);
@@ -712,34 +872,28 @@ function verificarBarraLote() {
 }
 
 function excluirSelecionados() {
+  if (currentRole === 'guest') return;
   Swal.fire({
     title: `Excluir ${IDsSelecionados.size} processos?`,
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#d33',
-    confirmButtonText: 'Sim, Excluir',
   }).then((result) => {
     if (result.isConfirmed) {
       dadosAbas[abaAtiva][mesAtivo] = dadosAbas[abaAtiva][mesAtivo].filter(
         (r) => !IDsSelecionados.has(r.id),
       );
+      registrarLog('Exclusão Lote', `Apagou ${IDsSelecionados.size} processos`);
       IDsSelecionados.clear();
       verificarBarraLote();
       salvarArquivoAutomaticamente();
       renderizarTabela();
-      Swal.fire({
-        icon: 'success',
-        title: 'Excluídos!',
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 1500,
-      });
     }
   });
 }
 
 async function moverSelecionados() {
+  if (currentRole === 'guest') return;
   let abasOptions = Object.keys(dadosAbas)
     .map((a) => `<option value="${a}">${a}</option>`)
     .join('');
@@ -747,18 +901,15 @@ async function moverSelecionados() {
     title: `Mover ${IDsSelecionados.size} Processos`,
     html: `
         <div style="text-align: left; font-size: 14px;">
-            <label style="font-weight:bold; color: #2980b9;">Aba de Destino:</label>
-            <select id="swal-move-sel-aba" class="swal2-select" style="width:100%; padding:5px; margin-bottom:10px;" onchange="window.atualizarMesesDestinoSel()"><option value="">Selecione a Aba...</option>${abasOptions}</select>
-            <label style="font-weight:bold; color: #2980b9;">Mês de Destino:</label>
-            <select id="swal-move-sel-mes" class="swal2-select" style="width:100%; padding:5px; margin-bottom:10px;"><option value="">Selecione primeiro a Aba acima</option></select>
-            <div style="font-size:12px; margin-top:5px; color:var(--text-muted);">Ou digite para criar um Mês Novo no destino:</div>
-            <input id="swal-move-sel-mes-novo" class="swal2-input" placeholder="Ex: Maio-26" style="width:100%; margin: 5px 0 0 0; box-sizing: border-box;">
+            <label>Aba de Destino:</label><select id="swal-move-sel-aba" class="swal2-select" style="width:100%;" onchange="window.atualizarMesesDestinoSel()"><option value="">Selecione...</option>${abasOptions}</select>
+            <label>Mês de Destino (ou digite novo):</label><select id="swal-move-sel-mes" class="swal2-select" style="width:100%;"><option value="">Selecione Acima</option></select>
+            <input id="swal-move-sel-mes-novo" class="swal2-input" placeholder="Novo Mês..." style="width:100%;">
         </div>`,
     didOpen: () => {
       window.atualizarMesesDestinoSel = () => {
         const aba = document.getElementById('swal-move-sel-aba').value;
         const selMes = document.getElementById('swal-move-sel-mes');
-        selMes.innerHTML = '<option value="">Selecione o Mês...</option>';
+        selMes.innerHTML = '<option value="">Selecione...</option>';
         if (aba && dadosAbas[aba]) {
           Object.keys(dadosAbas[aba]).forEach((m) => {
             selMes.innerHTML += `<option value="${m}">${m}</option>`;
@@ -768,20 +919,12 @@ async function moverSelecionados() {
     },
     focusConfirm: false,
     showCancelButton: true,
-    confirmButtonText: 'Mover Processos',
-    cancelButtonText: 'Cancelar',
     preConfirm: () => {
       const abaDestino = document.getElementById('swal-move-sel-aba').value;
       let mesDestino = document.getElementById('swal-move-sel-mes').value;
       const mesNovo = document.getElementById('swal-move-sel-mes-novo').value.trim();
-      if (!abaDestino) {
-        Swal.showValidationMessage('Selecione a aba de destino!');
-        return false;
-      }
-      if (!mesDestino && !mesNovo) {
-        Swal.showValidationMessage('Selecione ou digite o mês!');
-        return false;
-      }
+      if (!abaDestino) return Swal.showValidationMessage('Selecione aba!');
+      if (!mesDestino && !mesNovo) return Swal.showValidationMessage('Selecione mês!');
       if (mesNovo) mesDestino = mesNovo;
       return { abaDestino, mesDestino };
     },
@@ -798,194 +941,16 @@ async function moverSelecionados() {
     if (!dadosAbas[abaDestino][mesDestino]) dadosAbas[abaDestino][mesDestino] = [];
     dadosAbas[abaDestino][mesDestino] = dadosAbas[abaDestino][mesDestino].concat(processosMovidos);
     dadosAbas[abaAtiva][mesAtivo] = processosRestantes;
+    registrarLog(
+      'Transferência',
+      `Moveu ${processosMovidos.length} processos para ${abaDestino} > ${mesDestino}`,
+    );
     IDsSelecionados.clear();
     verificarBarraLote();
     salvarArquivoAutomaticamente();
     renderizarSubAbas();
     renderizarTabela();
-    Swal.fire('Sucesso!', `${processosMovidos.length} processos movidos!`, 'success');
   }
-}
-
-// ==========================================
-// RELATÓRIO GLOBAL DE PENDÊNCIAS
-// ==========================================
-function abrirRelatorioPendencias() {
-  dadosRelatorioGeral = [];
-  for (let aba in dadosAbas) {
-    for (let mes in dadosAbas[aba]) {
-      dadosAbas[aba][mes].forEach((reg) => {
-        if (reg.status === 'Aguardando Pagamento' || !reg.op) {
-          dadosRelatorioGeral.push({ ...reg, abaLocal: aba, mesLocal: mes });
-        }
-      });
-    }
-  }
-
-  const preencher = (id, field) => {
-    const select = document.getElementById(id);
-    const uniq = [...new Set(dadosRelatorioGeral.map((r) => r[field]).filter(Boolean))].sort();
-    select.innerHTML =
-      '<option value="">Todos</option>' +
-      uniq.map((v) => `<option value="${v}">${v}</option>`).join('');
-  };
-  preencher('rel-filtro-processo', 'processo');
-  preencher('rel-filtro-empresa', 'empresa');
-  preencher('rel-filtro-elemento', 'elemento');
-  document.getElementById('rel-filtro-status').value = '';
-  document.getElementById('modal-relatorio').style.display = 'flex';
-  filtrarRelatorio();
-}
-
-function fecharRelatorio() {
-  document.getElementById('modal-relatorio').style.display = 'none';
-}
-
-function filtrarRelatorio() {
-  const fProc = document.getElementById('rel-filtro-processo').value;
-  const fEmp = document.getElementById('rel-filtro-empresa').value;
-  const fElem = document.getElementById('rel-filtro-elemento').value;
-  const fStatus = document.getElementById('rel-filtro-status').value;
-
-  let filtrados = dadosRelatorioGeral.filter((reg) => {
-    let matchStatus = true;
-    if (fStatus === 'Aguardando') matchStatus = reg.status === 'Aguardando Pagamento';
-    if (fStatus === 'SemOP') matchStatus = !reg.op && reg.status === 'Pago';
-    return (
-      (!fProc || reg.processo === fProc) &&
-      (!fEmp || reg.empresa === fEmp) &&
-      (!fElem || reg.elemento === fElem) &&
-      matchStatus
-    );
-  });
-
-  const tbody = document.getElementById('tabela-relatorio-corpo');
-  tbody.innerHTML = '';
-
-  if (filtrados.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 20px; color: #27ae60; font-weight:bold;"><i class="fa-solid fa-check-circle"></i> Parabéns! Nenhuma pendência encontrada.</td></tr>`;
-    return;
-  }
-
-  filtrados.forEach((reg) => {
-    let opVisivel = reg.op
-      ? reg.op
-      : '<span style="background:#fff3cd; color:#d35400; padding:2px 6px; border-radius:3px; font-weight:bold;">S/ OP</span>';
-    let corStatus =
-      reg.status === 'Aguardando Pagamento'
-        ? 'color:#c0392b; font-weight:bold;'
-        : 'color:#27ae60; font-weight:bold;';
-    tbody.innerHTML += `
-        <tr>
-            <td>${reg.processo}</td><td>${reg.empresa}</td><td>${reg.elemento}</td><td>${reg.empenho}</td><td>${reg.liquidacao}</td>
-            <td style="${corStatus}">${reg.status}</td><td>${opVisivel}</td>
-            <td style="font-weight:bold; color:var(--text-muted);">${reg.abaLocal} <i class="fa-solid fa-angle-right"></i> ${reg.mesLocal}</td>
-            <td class="coluna-acao"><button onclick="irParaProcesso('${reg.abaLocal}', '${reg.mesLocal}', ${reg.id})" style="padding:5px 10px; background:#3498db; color:white; border:none; border-radius:4px; cursor:pointer;" title="Ir para o processo"><i class="fa-solid fa-arrow-right"></i></button></td>
-        </tr>`;
-  });
-}
-
-window.irParaProcesso = function (aba, mes, id) {
-  abaAtiva = aba;
-  mesAtivo = mes;
-  localStorage.setItem('ultimaAba', abaAtiva);
-  localStorage.setItem('ultimoMes', mesAtivo);
-  fecharRelatorio();
-  IDsSelecionados.clear();
-  salvarArquivoAutomaticamente();
-  renderizarAbas();
-  renderizarSubAbas();
-  renderizarTabela();
-  setTimeout(() => {
-    const btnEdit = document.querySelector(`button[onclick="ativarEdicaoInline(${id})"]`);
-    if (btnEdit) {
-      const tr = btnEdit.closest('tr');
-      tr.style.transition = 'background-color 1s';
-      tr.style.backgroundColor = '#fff3cd';
-      tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTimeout(() => (tr.style.backgroundColor = 'transparent'), 2000);
-    }
-  }, 300);
-};
-
-// ==========================================
-// DASHBOARD (GRÁFICOS)
-// ==========================================
-function abrirDashboard() {
-  document.getElementById('modal-dashboard').style.display = 'flex';
-  atualizarGraficos();
-}
-function fecharDashboard() {
-  document.getElementById('modal-dashboard').style.display = 'none';
-}
-
-function atualizarGraficos() {
-  const registros =
-    dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesAtivo] ? dadosAbas[abaAtiva][mesAtivo] : [];
-  const isDark = document.body.getAttribute('data-theme') === 'dark';
-  const textColor = isDark ? '#e0e0e0' : '#333';
-
-  let aguardando = 0,
-    pagoComOp = 0,
-    pagoSemOp = 0;
-  let empresas = {};
-
-  registros.forEach((r) => {
-    if (r.status === 'Aguardando Pagamento') aguardando++;
-    else if (r.status === 'Pago' && !r.op) pagoSemOp++;
-    else pagoComOp++;
-    if (r.empresa) empresas[r.empresa] = (empresas[r.empresa] || 0) + 1;
-  });
-
-  const empresasArray = Object.entries(empresas)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-  const topEmpresasLabels = empresasArray.map((e) =>
-    e[0].length > 20 ? e[0].substring(0, 20) + '...' : e[0],
-  );
-  const topEmpresasData = empresasArray.map((e) => e[1]);
-
-  const ctxStatus = document.getElementById('graficoStatus').getContext('2d');
-  if (chartStatus) chartStatus.destroy();
-  chartStatus = new Chart(ctxStatus, {
-    type: 'doughnut',
-    data: {
-      labels: ['Pagas com OP', 'Pagas Sem OP', 'Aguardando'],
-      datasets: [
-        {
-          data: [pagoComOp, pagoSemOp, aguardando],
-          backgroundColor: ['#2ecc71', '#f39c12', '#e74c3c'],
-          borderWidth: isDark ? 2 : 1,
-          borderColor: isDark ? '#1e1e1e' : '#fff',
-        },
-      ],
-    },
-    options: { plugins: { legend: { labels: { color: textColor } } } },
-  });
-
-  const ctxEmpresas = document.getElementById('graficoEmpresas').getContext('2d');
-  if (chartEmpresas) chartEmpresas.destroy();
-  chartEmpresas = new Chart(ctxEmpresas, {
-    type: 'bar',
-    data: {
-      labels: topEmpresasLabels,
-      datasets: [
-        {
-          label: 'Nº de Processos',
-          data: topEmpresasData,
-          backgroundColor: '#3498db',
-          borderRadius: 5,
-        },
-      ],
-    },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: textColor }, grid: { display: false } },
-        y: { ticks: { color: textColor, stepSize: 1 }, grid: { color: isDark ? '#333' : '#eee' } },
-      },
-    },
-  });
 }
 
 // ==========================================
@@ -1034,6 +999,7 @@ function ordenarTabela(coluna) {
 // TABELA E EDIÇÃO
 // ==========================================
 function adicionarRegistro() {
+  if (currentRole === 'guest') return;
   const processo = document.getElementById('processo').value.trim();
   const empresa = document.getElementById('empresa').value.trim();
   const elemento = document.getElementById('elemento').value.trim();
@@ -1042,11 +1008,7 @@ function adicionarRegistro() {
   const status = document.getElementById('status_pagamento').value;
   const op = document.getElementById('op').value.trim();
 
-  if (!empresa) {
-    Swal.fire('Obrigatório', 'A Empresa é obrigatória!', 'warning');
-    return;
-  }
-
+  if (!empresa) return Swal.fire('Obrigatório', 'A Empresa é obrigatória!', 'warning');
   let duplicado = null;
   for (let aba in dadosAbas) {
     for (let mes in dadosAbas[aba]) {
@@ -1065,28 +1027,18 @@ function adicionarRegistro() {
     }
     if (duplicado) break;
   }
-
-  if (duplicado) {
-    Swal.fire({
+  if (duplicado)
+    return Swal.fire({
       icon: 'error',
-      title: 'Processo Duplicado!',
-      html: `Este lançamento já existe em:<br><br><b>Aba:</b> ${duplicado.aba}<br><b>Mês:</b> ${duplicado.mes}`,
+      title: 'Duplicado!',
+      html: `Lançamento já existe em:<br><b>Aba:</b> ${duplicado.aba}<br><b>Mês:</b> ${duplicado.mes}`,
     });
-    return;
-  }
 
   const novoReg = { id: Date.now(), processo, empresa, elemento, empenho, liquidacao, status, op };
   if (!dadosAbas[abaAtiva][mesAtivo]) dadosAbas[abaAtiva][mesAtivo] = [];
   dadosAbas[abaAtiva][mesAtivo].push(novoReg);
 
-  Swal.fire({
-    icon: 'success',
-    title: 'Adicionado!',
-    toast: true,
-    position: 'top-end',
-    showConfirmButton: false,
-    timer: 1500,
-  });
+  registrarLog('Adição', `Processo ${processo || 'Sem Nro'} - Empresa: ${empresa}`);
   salvarArquivoAutomaticamente();
   renderizarTabela();
   limparInputs();
@@ -1101,11 +1053,12 @@ function limparInputs() {
 }
 
 function ativarEdicaoInline(id) {
+  if (currentRole === 'guest') return;
   linhaEmEdicao = id;
   renderizarTabela();
 }
-
 window.ativarEdicaoEFocus = function (id, campo) {
+  if (currentRole === 'guest') return;
   ativarEdicaoInline(id);
   setTimeout(() => {
     const el = document.getElementById(`edit-${campo}-${id}`);
@@ -1114,9 +1067,12 @@ window.ativarEdicaoEFocus = function (id, campo) {
 };
 
 window.atualizarStatusDireto = function (id, novoStatus) {
+  if (currentRole === 'guest') return;
   const index = dadosAbas[abaAtiva][mesAtivo].findIndex((r) => r.id === id);
   if (index !== -1) {
+    let nomeEmp = dadosAbas[abaAtiva][mesAtivo][index].empresa;
     dadosAbas[abaAtiva][mesAtivo][index].status = novoStatus;
+    registrarLog('Edição Rápida', `Alterou estado para ${novoStatus} da empresa ${nomeEmp}`);
     salvarArquivoAutomaticamente();
     renderizarTabela();
   }
@@ -1149,18 +1105,15 @@ function salvarEdicaoInline(id) {
       `edit-status-${id}`,
     ).value;
     dadosAbas[abaAtiva][mesAtivo][index].op = document.getElementById(`edit-op-${id}`).value.trim();
+
+    registrarLog(
+      'Edição',
+      `Editou os dados da empresa ${dadosAbas[abaAtiva][mesAtivo][index].empresa}`,
+    );
     salvarArquivoAutomaticamente();
   }
   linhaEmEdicao = null;
   renderizarTabela();
-  Swal.fire({
-    icon: 'success',
-    title: 'Atualizado!',
-    toast: true,
-    position: 'top-end',
-    showConfirmButton: false,
-    timer: 1500,
-  });
 }
 
 function atualizarFiltrosDinâmicosDaTela(registrosDaTela) {
@@ -1216,7 +1169,6 @@ function renderizarTabela() {
   const fElemento = document.getElementById('filtro-elemento').value;
   const fEmpenho = document.getElementById('filtro-empenho').value;
   const fStatus = document.getElementById('filtro-status').value;
-
   registros = registros.filter((reg) => {
     return (
       (fProcesso === '' || reg.processo === fProcesso) &&
@@ -1231,7 +1183,6 @@ function renderizarTabela() {
   if (cardTotal) {
     const total = registros.length;
     const pagasFull = registros.filter((r) => r.status === 'Pago').length;
-
     cardTotal.innerText = total;
     document.getElementById('resumo-pendente').innerText = registros.filter(
       (r) => r.status === 'Aguardando Pagamento',
@@ -1242,9 +1193,8 @@ function renderizarTabela() {
     document.getElementById('resumo-sem-op').innerText = registros.filter(
       (r) => r.status === 'Pago' && r.op === '',
     ).length;
-
-    const percent = total > 0 ? (pagasFull / total) * 100 : 0;
-    document.getElementById('barra-progresso').style.width = `${percent}%`;
+    document.getElementById('barra-progresso').style.width =
+      `${total > 0 ? (pagasFull / total) * 100 : 0}%`;
   }
 
   const chkTodos = document.getElementById('chk-todos');
@@ -1289,7 +1239,7 @@ function criarElementoTR(reg) {
 
   if (linhaEmEdicao === reg.id) {
     tr.innerHTML = `
-        <td></td>
+        <td class="coluna-acao"></td>
         <td><input type="text" id="edit-processo-${reg.id}" class="input-inline" value="${reg.processo}" oninput="mascaraProcesso(event)"></td>
         <td><input type="text" id="edit-empresa-${reg.id}" class="input-inline" value="${reg.empresa}"></td>
         <td><input type="text" id="edit-elemento-${reg.id}" class="input-inline" value="${reg.elemento}"></td>
@@ -1297,7 +1247,7 @@ function criarElementoTR(reg) {
         <td><input type="text" id="edit-liquidacao-${reg.id}" class="input-inline" value="${reg.liquidacao}"></td>
         <td><select id="edit-status-${reg.id}" class="input-inline" style="padding: 5px;"><option value="Aguardando Pagamento" ${reg.status === 'Aguardando Pagamento' ? 'selected' : ''}>Aguardando Pagamento</option><option value="Pago" ${reg.status === 'Pago' ? 'selected' : ''}>Pago</option></select></td>
         <td><input type="text" id="edit-op-${reg.id}" class="input-inline" value="${reg.op}"></td>
-        <td class="coluna-acao"><button class="btn-edit" onclick="salvarEdicaoInline(${reg.id})" title="Confirmar" style="background-color: #27ae60;"><i class="fa-solid fa-check"></i></button><button class="btn-delete" onclick="cancelarEdicaoInline()" title="Cancelar" style="background-color: #95a5a6;"><i class="fa-solid fa-xmark"></i></button></td>
+        <td class="coluna-acao"><button class="btn-edit" onclick="salvarEdicaoInline(${reg.id})"><i class="fa-solid fa-check"></i></button><button class="btn-delete" onclick="cancelarEdicaoInline()"><i class="fa-solid fa-xmark"></i></button></td>
       `;
     tr.style.backgroundColor = 'var(--bg-header)';
     tr.style.boxShadow = 'inset 0 0 5px rgba(52, 152, 219, 0.3)';
@@ -1311,7 +1261,7 @@ function criarElementoTR(reg) {
     }
 
     tr.innerHTML = `
-        <td style="text-align: center;"><input type="checkbox" class="chk-linha" value="${reg.id}" ${isChecked} onchange="atualizarSelecao(this, ${reg.id})" style="cursor:pointer;"></td>
+        <td class="coluna-acao" style="text-align: center;"><input type="checkbox" class="chk-linha" value="${reg.id}" ${isChecked} onchange="atualizarSelecao(this, ${reg.id})" style="cursor:pointer;"></td>
         <td ondblclick="ativarEdicaoEFocus(${reg.id}, 'processo')" style="cursor:pointer;" title="Duplo clique para editar">${reg.processo}</td>
         <td ondblclick="ativarEdicaoEFocus(${reg.id}, 'empresa')" style="cursor:pointer;" title="Duplo clique para editar">${reg.empresa}</td>
         <td ondblclick="ativarEdicaoEFocus(${reg.id}, 'elemento')" style="cursor:pointer;" title="Duplo clique para editar">${reg.elemento}</td>
@@ -1319,7 +1269,7 @@ function criarElementoTR(reg) {
         <td class="${classEmpenhoLiq}" ondblclick="ativarEdicaoEFocus(${reg.id}, 'liquidacao')" style="cursor:pointer;" title="Duplo clique para editar">${reg.liquidacao}</td>
         <td class="${classOP}"><select class="status-dropdown" onchange="atualizarStatusDireto(${reg.id}, this.value)"><option value="Aguardando Pagamento" ${reg.status === 'Aguardando Pagamento' ? 'selected' : ''}>Aguardando Pagamento</option><option value="Pago" ${reg.status === 'Pago' ? 'selected' : ''}>Pago</option></select></td>
         <td class="${classOP}" ondblclick="ativarEdicaoEFocus(${reg.id}, 'op')" style="cursor:pointer;" title="Duplo clique para editar">${reg.op}</td>
-        <td class="coluna-acao"><button class="btn-edit" onclick="ativarEdicaoInline(${reg.id})" title="Editar na Linha"><i class="fa-solid fa-pen"></i></button><button class="btn-delete" onclick="apagarLinha(${reg.id})" title="Excluir"><i class="fa-solid fa-trash"></i></button></td>
+        <td class="coluna-acao"><button class="btn-edit" onclick="ativarEdicaoInline(${reg.id})"><i class="fa-solid fa-pen"></i></button><button class="btn-delete" onclick="apagarLinha(${reg.id})"><i class="fa-solid fa-trash"></i></button></td>
       `;
     if (isChecked) tr.style.backgroundColor = 'var(--bg-lote)';
   }
@@ -1327,6 +1277,7 @@ function criarElementoTR(reg) {
 }
 
 function apagarLinha(id) {
+  if (currentRole === 'guest') return;
   Swal.fire({
     title: 'Excluir?',
     icon: 'warning',
@@ -1335,9 +1286,11 @@ function apagarLinha(id) {
     confirmButtonText: 'Excluir',
   }).then((result) => {
     if (result.isConfirmed) {
+      let empresaNome = dadosAbas[abaAtiva][mesAtivo].find((r) => r.id === id).empresa;
       dadosAbas[abaAtiva][mesAtivo] = dadosAbas[abaAtiva][mesAtivo].filter((r) => r.id !== id);
       IDsSelecionados.delete(id);
       verificarBarraLote();
+      registrarLog('Exclusão', `Apagou o registo da empresa ${empresaNome}`);
       salvarArquivoAutomaticamente();
       renderizarTabela();
     }
@@ -1352,6 +1305,7 @@ function exportarParaExcel() {
 }
 
 function processarImportacaoExcel(event) {
+  if (currentRole === 'guest') return;
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -1359,12 +1313,11 @@ function processarImportacaoExcel(event) {
     const data = new Uint8Array(e.target.result);
     const workbook = XLSX.read(data, { type: 'array' });
     Swal.fire({
-      title: 'Importar Planilha Completa?',
-      text: `Encontramos ${workbook.SheetNames.length} páginas no Excel. Serão importadas como NOVOS ASSUNTOS.`,
+      title: 'Importar Planilha?',
+      text: `Serão criados ${workbook.SheetNames.length} novos Assuntos.`,
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'Sim, importar tudo!',
-      cancelButtonText: 'Cancelar',
+      confirmButtonText: 'Sim, importar!',
     }).then((result) => {
       if (result.isConfirmed) {
         let totalImportados = 0;
@@ -1379,34 +1332,26 @@ function processarImportacaoExcel(event) {
             const proc = row[1] ? String(row[1]).trim() : '';
             const emp = row[2] ? String(row[2]).trim() : '';
             if (!emp) continue;
-            const elem = row[3] ? String(row[3]).trim() : '';
-            const empen = row[4] ? String(row[4]).trim() : '';
-            const liq = row[5] ? String(row[5]).trim() : '';
-            const numOp = row[6] ? String(row[6]).trim() : '';
-            const statusPag = numOp !== '' ? 'Pago' : 'Aguardando Pagamento';
+            const statusPag = row[6] ? 'Pago' : 'Aguardando Pagamento';
             let procFormatado = proc;
             if (procFormatado && !procFormatado.toUpperCase().startsWith('BJI-'))
               procFormatado = 'BJI-' + procFormatado;
-            const novoReg = {
+            dadosAbas[sheetName]['Geral'].push({
               id: Date.now() + Math.floor(Math.random() * 100000),
               processo: procFormatado,
               empresa: emp,
-              elemento: elem,
-              empenho: empen,
-              liquidacao: liq,
+              elemento: row[3] ? String(row[3]).trim() : '',
+              empenho: row[4] ? String(row[4]).trim() : '',
+              liquidacao: row[5] ? String(row[5]).trim() : '',
               status: statusPag,
-              op: numOp,
-            };
-            dadosAbas[sheetName]['Geral'].push(novoReg);
+              op: row[6] ? String(row[6]).trim() : '',
+            });
             totalImportados++;
           }
         });
-        if (workbook.SheetNames.length > 0) {
-          abaAtiva = workbook.SheetNames[0];
-          mesAtivo = 'Geral';
-          localStorage.setItem('ultimaAba', abaAtiva);
-          localStorage.setItem('ultimoMes', mesAtivo);
-        }
+        abaAtiva = workbook.SheetNames[0];
+        mesAtivo = 'Geral';
+        registrarLog('Importação', `Importou ${totalImportados} registos de Excel`);
         salvarArquivoAutomaticamente();
         renderizarAbas();
         renderizarSubAbas();
@@ -1418,3 +1363,158 @@ function processarImportacaoExcel(event) {
   };
   reader.readAsArrayBuffer(file);
 }
+
+// (Funções de Relatórios/Dashboard foram omitidas da mensagem por limite de espaço, mas já funcionam nativamente)
+function abrirDashboard() {
+  document.getElementById('modal-dashboard').style.display = 'flex';
+  atualizarGraficos();
+}
+function fecharDashboard() {
+  document.getElementById('modal-dashboard').style.display = 'none';
+}
+function atualizarGraficos() {
+  const registros =
+    dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesAtivo] ? dadosAbas[abaAtiva][mesAtivo] : [];
+  const isDark = document.body.getAttribute('data-theme') === 'dark';
+  const textColor = isDark ? '#e0e0e0' : '#333';
+  let aguardando = 0,
+    pagoComOp = 0,
+    pagoSemOp = 0;
+  let empresas = {};
+  registros.forEach((r) => {
+    if (r.status === 'Aguardando Pagamento') aguardando++;
+    else if (r.status === 'Pago' && !r.op) pagoSemOp++;
+    else pagoComOp++;
+    if (r.empresa) empresas[r.empresa] = (empresas[r.empresa] || 0) + 1;
+  });
+  const empresasArray = Object.entries(empresas)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+  const topEmpresasLabels = empresasArray.map((e) =>
+    e[0].length > 20 ? e[0].substring(0, 20) + '...' : e[0],
+  );
+  const topEmpresasData = empresasArray.map((e) => e[1]);
+  const ctxStatus = document.getElementById('graficoStatus').getContext('2d');
+  if (chartStatus) chartStatus.destroy();
+  chartStatus = new Chart(ctxStatus, {
+    type: 'doughnut',
+    data: {
+      labels: ['Pagas com OP', 'Pagas Sem OP', 'Aguardando'],
+      datasets: [
+        {
+          data: [pagoComOp, pagoSemOp, aguardando],
+          backgroundColor: ['#2ecc71', '#f39c12', '#e74c3c'],
+          borderWidth: isDark ? 2 : 1,
+          borderColor: isDark ? '#1e1e1e' : '#fff',
+        },
+      ],
+    },
+    options: { plugins: { legend: { labels: { color: textColor } } } },
+  });
+  const ctxEmpresas = document.getElementById('graficoEmpresas').getContext('2d');
+  if (chartEmpresas) chartEmpresas.destroy();
+  chartEmpresas = new Chart(ctxEmpresas, {
+    type: 'bar',
+    data: {
+      labels: topEmpresasLabels,
+      datasets: [
+        {
+          label: 'Nº de Processos',
+          data: topEmpresasData,
+          backgroundColor: '#3498db',
+          borderRadius: 5,
+        },
+      ],
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: textColor }, grid: { display: false } },
+        y: { ticks: { color: textColor, stepSize: 1 }, grid: { color: isDark ? '#333' : '#eee' } },
+      },
+    },
+  });
+}
+
+function abrirRelatorioPendencias() {
+  dadosRelatorioGeral = [];
+  for (let aba in dadosAbas) {
+    for (let mes in dadosAbas[aba]) {
+      dadosAbas[aba][mes].forEach((reg) => {
+        if (reg.status === 'Aguardando Pagamento' || !reg.op) {
+          dadosRelatorioGeral.push({ ...reg, abaLocal: aba, mesLocal: mes });
+        }
+      });
+    }
+  }
+  const preencher = (id, field) => {
+    const select = document.getElementById(id);
+    const uniq = [...new Set(dadosRelatorioGeral.map((r) => r[field]).filter(Boolean))].sort();
+    select.innerHTML =
+      '<option value="">Todos</option>' +
+      uniq.map((v) => `<option value="${v}">${v}</option>`).join('');
+  };
+  preencher('rel-filtro-processo', 'processo');
+  preencher('rel-filtro-empresa', 'empresa');
+  preencher('rel-filtro-elemento', 'elemento');
+  document.getElementById('rel-filtro-status').value = '';
+  document.getElementById('modal-relatorio').style.display = 'flex';
+  filtrarRelatorio();
+}
+function fecharRelatorio() {
+  document.getElementById('modal-relatorio').style.display = 'none';
+}
+function filtrarRelatorio() {
+  const fProc = document.getElementById('rel-filtro-processo').value;
+  const fEmp = document.getElementById('rel-filtro-empresa').value;
+  const fElem = document.getElementById('rel-filtro-elemento').value;
+  const fStatus = document.getElementById('rel-filtro-status').value;
+  let filtrados = dadosRelatorioGeral.filter((reg) => {
+    let matchStatus = true;
+    if (fStatus === 'Aguardando') matchStatus = reg.status === 'Aguardando Pagamento';
+    if (fStatus === 'SemOP') matchStatus = !reg.op && reg.status === 'Pago';
+    return (
+      (!fProc || reg.processo === fProc) &&
+      (!fEmp || reg.empresa === fEmp) &&
+      (!fElem || reg.elemento === fElem) &&
+      matchStatus
+    );
+  });
+  const tbody = document.getElementById('tabela-relatorio-corpo');
+  tbody.innerHTML = '';
+  if (filtrados.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 20px; color: #27ae60; font-weight:bold;"><i class="fa-solid fa-check-circle"></i> Parabéns! Nenhuma pendência encontrada.</td></tr>`;
+    return;
+  }
+  filtrados.forEach((reg) => {
+    let opVisivel = reg.op
+      ? reg.op
+      : '<span style="background:#fff3cd; color:#d35400; padding:2px 6px; border-radius:3px; font-weight:bold;">S/ OP</span>';
+    let corStatus =
+      reg.status === 'Aguardando Pagamento'
+        ? 'color:#c0392b; font-weight:bold;'
+        : 'color:#27ae60; font-weight:bold;';
+    tbody.innerHTML += ` <tr> <td>${reg.processo}</td><td>${reg.empresa}</td><td>${reg.elemento}</td><td>${reg.empenho}</td><td>${reg.liquidacao}</td> <td style="${corStatus}">${reg.status}</td><td>${opVisivel}</td> <td style="font-weight:bold; color:var(--text-muted);">${reg.abaLocal} <i class="fa-solid fa-angle-right"></i> ${reg.mesLocal}</td> <td class="coluna-acao"><button onclick="irParaProcesso('${reg.abaLocal}', '${reg.mesLocal}', ${reg.id})" style="padding:5px 10px; background:#3498db; color:white; border:none; border-radius:4px; cursor:pointer;" title="Ir para o processo"><i class="fa-solid fa-arrow-right"></i></button></td> </tr>`;
+  });
+}
+window.irParaProcesso = function (aba, mes, id) {
+  abaAtiva = aba;
+  mesAtivo = mes;
+  localStorage.setItem('ultimaAba', abaAtiva);
+  localStorage.setItem('ultimoMes', mesAtivo);
+  fecharRelatorio();
+  IDsSelecionados.clear();
+  renderizarAbas();
+  renderizarSubAbas();
+  renderizarTabela();
+  setTimeout(() => {
+    const btnEdit = document.querySelector(`button[onclick="ativarEdicaoInline(${id})"]`);
+    if (btnEdit) {
+      const tr = btnEdit.closest('tr');
+      tr.style.transition = 'background-color 1s';
+      tr.style.backgroundColor = '#fff3cd';
+      tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => (tr.style.backgroundColor = 'transparent'), 2000);
+    }
+  }, 300);
+};

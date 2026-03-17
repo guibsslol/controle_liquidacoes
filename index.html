@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-PT">
 
 <head>
   <meta charset="UTF-8" />
-  <title>Controle de Processos e Liquidações</title>
+  <title>Controlo de Processos e Liquidações</title>
   <link rel="stylesheet" href="style.css" />
 
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -12,11 +12,12 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 </head>
 
-<body>
+<body data-role="guest">
   <div class="container">
     <div class="conteudo-principal">
       <h2>
@@ -30,6 +31,21 @@
             style="font-size: 13px; color: #f39c12; font-weight: bold; background: var(--bg-header); padding: 5px 10px; border-radius: 20px; border: 1px solid var(--border-color);">
             <i class="fa-solid fa-spinner fa-spin"></i> Conectando...
           </span>
+
+          <div id="auth-container"
+            style="display: flex; align-items: center; gap: 10px; border-left: 2px solid var(--border-color); padding-left: 15px;">
+            <span id="nome-usuario-logado"
+              style="font-size: 13px; font-weight: bold; color: var(--text-main); display: none;"></span>
+            <button id="btn-painel-admin" onclick="abrirPainelAdmin()" class="admin-only"
+              style="display: none; background-color: #34495e; color: white; font-size: 12px; padding: 6px 12px;"><i
+                class="fa-solid fa-users-gear"></i> Painel</button>
+            <button id="btn-login" onclick="abrirModalLogin()"
+              style="background-color: #2980b9; color: white; font-size: 12px; padding: 6px 12px;"><i
+                class="fa-solid fa-right-to-bracket"></i> Entrar</button>
+            <button id="btn-logout" onclick="fazerLogout()"
+              style="display: none; background-color: #e74c3c; color: white; font-size: 12px; padding: 6px 12px;"><i
+                class="fa-solid fa-right-from-bracket"></i> Sair</button>
+          </div>
         </div>
       </h2>
 
@@ -67,7 +83,7 @@
         </div>
       </div>
 
-      <div class="form-row" id="area-formulario">
+      <div class="form-row block-guest" id="area-formulario">
         <div class="input-group">
           <label>Nº Processo</label>
           <input type="text" id="processo" list="lista-processos" placeholder="BJI-XXXXXX/XXXXXX/XXXX"
@@ -87,7 +103,7 @@
         </div>
       </div>
 
-      <div class="form-row">
+      <div class="form-row block-guest">
         <div class="input-group"><label>Nº Empenho</label><input type="text" id="empenho" list="lista-empenhos"
             placeholder="Ex: 123" /><datalist id="lista-empenhos"></datalist></div>
         <div class="input-group"><label>Nº Liquidação</label><input type="text" id="liquidacao" placeholder="Ex: 1/1" />
@@ -103,7 +119,7 @@
         </div>
       </div>
 
-      <div class="btn-container">
+      <div class="btn-container block-guest">
         <button id="btnPrincipal" class="btn-add" onclick="adicionarRegistro()"><i class="fa-solid fa-plus"></i> Lançar
           no Mês Atual</button>
         <button class="btn-clear" onclick="limparInputs()" style="background-color: #95a5a6"><i
@@ -143,21 +159,21 @@
 
       <div class="sub-abas-container">
         <div id="lista-sub-abas" class="lista-sub-abas"></div>
-        <button class="btn-novo-mes" onclick="criarNovoMes()"><i class="fa-solid fa-calendar-plus"></i> Novo
+        <button class="btn-novo-mes block-guest" onclick="criarNovoMes()"><i class="fa-solid fa-calendar-plus"></i> Novo
           Mês</button>
-        <button class="btn-novo-mes" onclick="duplicarMes()" style="background-color: #3498db; margin-left: 5px"
-          title="Copiar dados de um mês anterior para um novo mês"><i class="fa-solid fa-copy"></i> Copiar Mês</button>
+        <button class="btn-novo-mes block-guest" onclick="duplicarMes()"
+          style="background-color: #3498db; margin-left: 5px" title="Copiar dados"><i class="fa-solid fa-copy"></i>
+          Copiar Mês</button>
 
         <div style="margin-left: auto; display: flex; gap: 5px;">
           <button class="btn-novo-mes" onclick="abrirDashboard()" style="background-color: #8e44ad;"
-            title="Painel Gerencial de Gráficos"><i class="fa-solid fa-chart-pie"></i> Dashboard</button>
+            title="Painel Gerencial"><i class="fa-solid fa-chart-pie"></i> Dashboard</button>
           <button class="btn-novo-mes" onclick="abrirRelatorioPendencias()" style="background-color: #e74c3c;"
-            title="Ver todas as pendências do sistema"><i class="fa-solid fa-magnifying-glass-chart"></i> Pendências
-            Globais</button>
+            title="Ver pendências"><i class="fa-solid fa-magnifying-glass-chart"></i> Pendências Globais</button>
         </div>
       </div>
 
-      <div class="acoes-lote-container" id="acoes-lote"
+      <div class="acoes-lote-container block-guest" id="acoes-lote"
         style="display: none; background: var(--bg-lote); padding: 10px 15px; border-radius: 5px; margin-top: 15px; border: 1px solid #b6d4fe; align-items: center; gap: 15px;">
         <span style="font-weight: bold; color: #025ce2; font-size: 14px;" id="contador-selecionados">0
           selecionados</span>
@@ -172,7 +188,7 @@
       <table id="tabela-processos">
         <thead>
           <tr>
-            <th style="width: 40px; text-align: center;"><input type="checkbox" id="chk-todos"
+            <th class="coluna-acao" style="width: 40px; text-align: center;"><input type="checkbox" id="chk-todos"
                 onchange="toggleSelecionarTodos(this)" style="cursor: pointer;"></th>
             <th onclick="ordenarTabela('processo')" class="th-sortable">Processo <i class="fa-solid fa-sort"
                 id="sort-icon-processo"></i></th>
@@ -197,30 +213,30 @@
 
     <div class="abas-container">
       <div id="lista-abas" class="lista-abas"></div>
-      <button class="btn-nova-aba" onclick="criarNovaAba()"><i class="fa-solid fa-plus"></i> Novo Assunto</button>
-      <button class="btn-nova-aba" onclick="agruparAbas()" style="background-color: #9b59b6; margin-left: 5px"
-        title="Juntar várias abas numa só"><i class="fa-solid fa-object-group"></i> Agrupar</button>
-      <button class="btn-nova-aba" onclick="moverProcessosLote()" style="background-color: #e67e22; margin-left: 5px"
-        title="Transferir processos por nome/empenho"><i class="fa-solid fa-wand-magic-sparkles"></i> Mover
+      <button class="btn-nova-aba block-guest" onclick="criarNovaAba()"><i class="fa-solid fa-plus"></i> Novo
+        Assunto</button>
+      <button class="btn-nova-aba block-guest" onclick="agruparAbas()"
+        style="background-color: #9b59b6; margin-left: 5px"><i class="fa-solid fa-object-group"></i> Agrupar</button>
+      <button class="btn-nova-aba block-guest" onclick="moverProcessosLote()"
+        style="background-color: #e67e22; margin-left: 5px"><i class="fa-solid fa-wand-magic-sparkles"></i> Mover
         Lote</button>
 
       <div class="acoes-finais"
         style="margin-left: auto; display: flex; gap: 10px; margin-bottom: 5px; pointer-events: auto;">
         <input type="file" id="input-importar-excel" accept=".xlsx, .xls, .csv" style="display: none"
           onchange="processarImportacaoExcel(event)" />
-
-        <button onclick="document.getElementById('input-importar-excel').click()"
+        <button class="block-guest" onclick="document.getElementById('input-importar-excel').click()"
           style="background-color: #f39c12; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);"><i
             class="fa-solid fa-file-import"></i> Importar Excel</button>
 
         <input type="file" id="input-restaurar-json" accept=".json" style="display: none"
           onchange="restaurarBackup(event)" />
-        <button onclick="document.getElementById('input-restaurar-json').click()"
-          style="background-color: #e67e22; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);"
-          title="Envie seu JSON local para as nuvens"><i class="fa-solid fa-cloud-arrow-up"></i> Restaurar JSON</button>
+        <button class="admin-only" onclick="document.getElementById('input-restaurar-json').click()"
+          style="background-color: #e67e22; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15); display: none;"><i
+            class="fa-solid fa-cloud-arrow-up"></i> Restaurar JSON</button>
 
-        <button onclick="fazerBackupSeguranca()"
-          style="background-color: #34495e; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);"><i
+        <button class="admin-only" onclick="fazerBackupSeguranca()"
+          style="background-color: #34495e; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15); display: none;"><i
             class="fa-solid fa-download"></i> Backup JSON</button>
         <button class="btn-excel" onclick="exportarParaExcel()"
           style="background-color: #27ae60; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);"><i
@@ -232,33 +248,125 @@
     </div>
   </div>
 
+  <div id="modal-login" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-shield-halved" style="color: #2980b9;"></i> Acesso Restrito</h3>
+        <button onclick="fecharModalLogin()" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="padding-bottom: 25px;">
+        <div class="input-group" style="margin-bottom: 15px;">
+          <label>E-mail</label>
+          <input type="email" id="login-email" placeholder="seu@email.com" class="input-inline">
+        </div>
+        <div class="input-group" style="margin-bottom: 20px;">
+          <label>Senha</label>
+          <input type="password" id="login-senha" placeholder="******" class="input-inline">
+        </div>
+        <button onclick="fazerLogin()" style="width: 100%; background-color: #2980b9; color: white; font-size: 15px;"><i
+            class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-admin" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 900px; max-height: 85vh;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-users-gear" style="color: #34495e;"></i> Painel de Administração</h3>
+        <button onclick="fecharPainelAdmin()" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="padding: 0;">
+        <div style="display: flex; background: var(--bg-header); border-bottom: 1px solid var(--border-color);">
+          <button class="btn-admin-tab ativa" id="tab-usuarios-btn" onclick="mudarAbaAdmin('usuarios')"
+            style="flex: 1; border-radius: 0; box-shadow: none; background: transparent; color: var(--text-main); border-bottom: 3px solid #3498db;">Gestão
+            de Utilizadores</button>
+          <button class="btn-admin-tab" id="tab-logs-btn" onclick="mudarAbaAdmin('logs')"
+            style="flex: 1; border-radius: 0; box-shadow: none; background: transparent; color: var(--text-muted); border-bottom: 3px solid transparent;">Histórico
+            de Auditoria</button>
+        </div>
+
+        <div id="admin-tab-usuarios" style="padding: 20px; overflow-y: auto;">
+          <div
+            style="background: var(--bg-body); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; color: var(--text-main);"><i class="fa-solid fa-user-plus"></i> Registar Novo
+              Utilizador</h4>
+            <div class="form-row" style="margin-bottom: 0;">
+              <div class="input-group"><label>Nome</label><input type="text" id="novo-user-nome"
+                  placeholder="Nome Completo"></div>
+              <div class="input-group"><label>E-mail</label><input type="email" id="novo-user-email"
+                  placeholder="email@email.com"></div>
+              <div class="input-group"><label>Senha Inicial</label><input type="password" id="novo-user-senha"
+                  placeholder="Mínimo 6 chars"></div>
+              <div class="input-group">
+                <label>Cargo</label>
+                <select id="novo-user-cargo">
+                  <option value="comum">Usuário Comum (Lançamentos)</option>
+                  <option value="admin_comum">Administrador Comum</option>
+                </select>
+              </div>
+              <button onclick="criarNovoUsuario()" style="background: #27ae60; color: white; margin-bottom: 2px;"><i
+                  class="fa-solid fa-check"></i> Registar</button>
+            </div>
+          </div>
+          <table style="width: 100%; border-collapse: separate; font-size: 13px;">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Cargo</th>
+                <th style="text-align: center;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-usuarios-corpo"></tbody>
+          </table>
+        </div>
+
+        <div id="admin-tab-logs" style="display: none; padding: 20px; overflow-y: auto; height: 100%;">
+          <div class="filtros-container" style="margin-top: 0; margin-bottom: 15px; padding: 10px;">
+            <div class="form-row" style="margin-bottom: 0;">
+              <input type="text" id="filtro-log-texto" placeholder="Buscar por Nome, Processo ou Ação..."
+                class="input-inline" style="flex: 2;" oninput="renderizarLogs()">
+              <button onclick="limparLogs()" style="background: #e74c3c; color: white; padding: 6px 15px;"><i
+                  class="fa-solid fa-trash"></i> Limpar Histórico</button>
+            </div>
+          </div>
+          <table style="width: 100%; border-collapse: separate; font-size: 12px;">
+            <thead>
+              <tr>
+                <th style="width:140px;">Data/Hora</th>
+                <th>Utilizador</th>
+                <th style="width:100px;">Ação</th>
+                <th>Detalhes do Registo</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-logs-corpo"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="modal-relatorio" class="modal-overlay" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
         <h3><i class="fa-solid fa-magnifying-glass-chart" style="color: #e74c3c;"></i> Relatório Global de Pendências
-        </h3>
-        <button onclick="fecharRelatorio()" class="btn-close-modal" title="Fechar Relatório"><i
-            class="fa-solid fa-xmark"></i></button>
+        </h3><button onclick="fecharRelatorio()" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body">
         <div class="filtros-container" style="margin-top: 0; margin-bottom: 15px; padding: 10px; flex-shrink: 0;">
           <h4 style="margin: 0 0 10px 0; font-size: 13px;"><i class="fa-solid fa-filter"></i> Filtrar Pendências</h4>
-          <div class="form-row" style="margin-bottom: 0;">
-            <select id="rel-filtro-processo" onchange="filtrarRelatorio()">
-              <option value="">Todos os Processos</option>
-            </select>
-            <select id="rel-filtro-empresa" onchange="filtrarRelatorio()">
-              <option value="">Todas as Empresas</option>
-            </select>
-            <select id="rel-filtro-elemento" onchange="filtrarRelatorio()">
-              <option value="">Todos os Elementos</option>
-            </select>
-            <select id="rel-filtro-status" onchange="filtrarRelatorio()">
-              <option value="">Qualquer Motivo</option>
+          <div class="form-row" style="margin-bottom: 0;"><select id="rel-filtro-processo"
+              onchange="filtrarRelatorio()">
+              <option value="">Todos</option>
+            </select><select id="rel-filtro-empresa" onchange="filtrarRelatorio()">
+              <option value="">Todas</option>
+            </select><select id="rel-filtro-elemento" onchange="filtrarRelatorio()">
+              <option value="">Todos</option>
+            </select><select id="rel-filtro-status" onchange="filtrarRelatorio()">
+              <option value="">Qualquer</option>
               <option value="Aguardando Pagamento">Aguardando Pagamento</option>
               <option value="Sem OP">Pagas Sem OP</option>
-            </select>
-          </div>
+            </select></div>
         </div>
         <div
           style="flex: 1; overflow-y: auto; border: 1px solid var(--border-color); border-bottom: none; border-radius: 8px 8px 0 0; background: var(--bg-container);">
@@ -282,23 +390,22 @@
       </div>
     </div>
   </div>
-
   <div id="modal-dashboard" class="modal-overlay" style="display: none;">
     <div class="modal-content" style="max-width: 900px;">
       <div class="modal-header">
-        <h3><i class="fa-solid fa-chart-pie" style="color: #8e44ad;"></i> Painel Gerencial (Aba Atual)</h3>
-        <button onclick="fecharDashboard()" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+        <h3><i class="fa-solid fa-chart-pie" style="color: #8e44ad;"></i> Painel Gerencial (Aba Atual)</h3><button
+          onclick="fecharDashboard()" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body" style="padding-bottom: 25px; flex-direction: row; gap: 20px;">
         <div
           style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-body); border-radius: 10px; padding: 15px; border: 1px solid var(--border-color);">
-          <h4 style="margin: 0 0 15px 0; color: var(--text-main);">Processos por Estado</h4>
-          <canvas id="graficoStatus" style="max-height: 250px;"></canvas>
+          <h4 style="margin: 0 0 15px 0; color: var(--text-main);">Processos por Estado</h4><canvas id="graficoStatus"
+            style="max-height: 250px;"></canvas>
         </div>
         <div
           style="flex: 1.5; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-body); border-radius: 10px; padding: 15px; border: 1px solid var(--border-color);">
-          <h4 style="margin: 0 0 15px 0; color: var(--text-main);">Top 5 Empresas Ativas (Qtd. Processos)</h4>
-          <canvas id="graficoEmpresas" style="max-height: 250px; width: 100%;"></canvas>
+          <h4 style="margin: 0 0 15px 0; color: var(--text-main);">Top 5 Empresas Ativas</h4><canvas
+            id="graficoEmpresas" style="max-height: 250px; width: 100%;"></canvas>
         </div>
       </div>
     </div>
