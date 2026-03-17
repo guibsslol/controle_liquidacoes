@@ -1,3 +1,6 @@
+// ==========================================
+// CONFIGURAÇÃO DO FIREBASE (NUVEM)
+// ==========================================
 const firebaseConfig = {
   apiKey: 'AIzaSyAIQrfYY0QvtyN7qj61uLhq6Xyb4Eyn3ZA',
   authDomain: 'controliqui-smebji.firebaseapp.com',
@@ -8,16 +11,21 @@ const firebaseConfig = {
   appId: '1:659644181097:web:82b55c5eba921bc06e10f8',
 };
 
+// Inicializa a Nuvem
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 const auth = firebase.auth();
 
-// Instância Fantasma para criar usuários sem deslogar o Admin
+// Instância Fantasma para criar utilizadores sem deslogar o Admin
 const adminAuthApp = firebase.initializeApp(firebaseConfig, 'AdminAuthApp');
 
+// ==========================================
+// VARIÁVEIS GLOBAIS DO SISTEMA
+// ==========================================
 let dadosAbas = { 'Assunto Geral': { Janeiro: [] } };
 let abaAtiva = 'Assunto Geral';
 let mesAtivo = 'Janeiro';
+
 let abaArrastada = null;
 let subAbaArrastada = null;
 let linhaEmEdicao = null;
@@ -25,6 +33,7 @@ let colunaSort = 'id';
 let ordemSort = 'asc';
 let IDsSelecionados = new Set();
 let dadosRelatorioGeral = [];
+
 let chartStatus = null;
 let chartEmpresas = null;
 
@@ -72,6 +81,37 @@ function mascaraProcesso(e) {
   input.value = formatted;
 }
 
+// Atalhos de Teclado
+document.addEventListener('keydown', function (e) {
+  if (linhaEmEdicao !== null) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelarEdicaoInline();
+      return;
+    }
+    if (e.key === 'Enter') {
+      if (e.target.classList.contains('input-inline')) {
+        e.preventDefault();
+        salvarEdicaoInline(linhaEmEdicao);
+        return;
+      }
+    }
+  }
+  if (e.key === 'Enter') {
+    const noFormulario = e.target.closest('.form-row') && !e.target.closest('.filtros-container');
+    if (noFormulario) {
+      e.preventDefault();
+      adicionarRegistro();
+    }
+  }
+
+  // ATALHO SECRETO: Ctrl + Shift + P
+  if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+    e.preventDefault();
+    abrirPainelAdmin();
+  }
+});
+
 // ==========================================
 // 1. STARTUP, AUTH & LOGS
 // ==========================================
@@ -90,23 +130,6 @@ window.onload = () => {
             currentRole = snap.val().cargo;
             currentUserName = snap.val().nome;
             aplicarInterfaceUsuario();
-          } else {
-            // MÁGICA: O primeiro a entrar vira Admin Geral automaticamente
-            database
-              .ref('usuarios')
-              .once('value')
-              .then((usersSnap) => {
-                if (!usersSnap.exists()) {
-                  currentRole = 'admin_geral';
-                  currentUserName = 'Administrador Master';
-                  database
-                    .ref('usuarios/' + user.uid)
-                    .set({ email: user.email, nome: currentUserName, cargo: currentRole });
-                } else {
-                  currentRole = 'guest'; // Falha de segurança, bloqueia.
-                }
-                aplicarInterfaceUsuario();
-              });
           }
         });
     } else {
@@ -117,6 +140,7 @@ window.onload = () => {
     }
   });
 
+  // Listener da Base de Dados
   const dbRef = database.ref('sistema');
   dbRef.on('value', (snapshot) => {
     const data = snapshot.val();
@@ -147,7 +171,7 @@ window.onload = () => {
 };
 
 function aplicarInterfaceUsuario() {
-  document.body.setAttribute('data-role', currentRole); // O CSS faz a mágica de esconder tudo
+  document.body.setAttribute('data-role', currentRole); // O CSS faz a mágica de esconder
 
   if (currentRole !== 'guest') {
     document.getElementById('nome-usuario-logado').style.display = 'inline';
@@ -162,7 +186,6 @@ function aplicarInterfaceUsuario() {
   }
 
   if (currentRole === 'admin_geral' || currentRole === 'admin_comum') {
-    document.querySelector('.admin-only').style.display = 'inline-block';
     document.querySelectorAll('.admin-only').forEach((el) => (el.style.display = 'inline-block'));
   } else {
     document.querySelectorAll('.admin-only').forEach((el) => (el.style.display = 'none'));
@@ -203,7 +226,7 @@ function fecharModalLogin() {
 function fazerLogin() {
   const email = document.getElementById('login-email').value;
   const senha = document.getElementById('login-senha').value;
-  if (!email || !senha) return Swal.fire('Aviso', 'Preencha email e senha', 'warning');
+  if (!email || !senha) return Swal.fire('Aviso', 'Preencha o email e a senha', 'warning');
 
   auth
     .signInWithEmailAndPassword(email, senha)
@@ -225,7 +248,7 @@ function fazerLogout() {
   auth.signOut();
   Swal.fire({
     icon: 'info',
-    title: 'Você saiu.',
+    title: 'Sessão terminada.',
     toast: true,
     position: 'top-end',
     timer: 2000,
@@ -234,9 +257,19 @@ function fazerLogout() {
 }
 
 function abrirPainelAdmin() {
-  if (currentRole !== 'admin_geral' && currentRole !== 'admin_comum') return;
-  document.getElementById('modal-admin').style.display = 'flex';
-  mudarAbaAdmin('usuarios');
+  // A MÁGICA DA CORREÇÃO ACONTECE AQUI:
+  database
+    .ref('usuarios')
+    .once('value')
+    .then((snap) => {
+      // Permite abrir se for Admin, OU se a base de dados de utilizadores estiver vazia!
+      if (!snap.exists() || currentRole === 'admin_geral' || currentRole === 'admin_comum') {
+        document.getElementById('modal-admin').style.display = 'flex';
+        mudarAbaAdmin('usuarios');
+      } else {
+        Swal.fire('Acesso Negado', 'Apenas administradores podem aceder ao painel.', 'error');
+      }
+    });
 }
 function fecharPainelAdmin() {
   document.getElementById('modal-admin').style.display = 'none';
@@ -269,7 +302,7 @@ function renderizarUsuarios() {
           ? '<b style="color:#8e44ad">Admin Geral</b>'
           : c === 'admin_comum'
             ? '<b style="color:#2980b9">Admin Comum</b>'
-            : 'Usuário Comum';
+            : 'Utilizador Comum';
 
       snap.forEach((child) => {
         const u = child.val();
@@ -278,7 +311,7 @@ function renderizarUsuarios() {
         // Regra: Admin Comum não pode apagar Admin Geral
         let btnApagar = `<button onclick="apagarUsuario('${child.key}', '${u.cargo}')" style="padding:4px 8px; background:#e74c3c; color:white; border:none; border-radius:4px;"><i class="fa-solid fa-trash"></i></button>`;
         if (u.cargo === 'admin_geral' && currentRole !== 'admin_geral') btnApagar = '';
-        if (child.key === currentUser.uid)
+        if (currentUser && child.key === currentUser.uid)
           btnApagar =
             '<span style="color:#27ae60; font-size:11px; font-weight:bold;">(Você)</span>';
 
@@ -292,32 +325,49 @@ function criarNovoUsuario() {
   const nome = document.getElementById('novo-user-nome').value.trim();
   const email = document.getElementById('novo-user-email').value.trim();
   const senha = document.getElementById('novo-user-senha').value;
-  const cargo = document.getElementById('novo-user-cargo').value;
+  let cargo = document.getElementById('novo-user-cargo').value;
 
   if (!nome || !email || senha.length < 6)
     return Swal.fire(
       'Aviso',
-      'Preencha tudo corretamente. A senha deve ter 6 caracteres.',
+      'Preencha tudo corretamente. A senha deve ter no mínimo 6 caracteres.',
       'warning',
     );
 
-  // Usa a instância fantasma para não deslogar o Admin
+  // Usa a instância fantasma para não deslogar o Admin atual
   adminAuthApp
     .auth()
     .createUserWithEmailAndPassword(email, senha)
     .then((userCredential) => {
       const uid = userCredential.user.uid;
+
+      // Verifica se é o PRIMEIRO utilizador a ser criado
       database
-        .ref('usuarios/' + uid)
-        .set({ nome: nome, email: email, cargo: cargo })
-        .then(() => {
-          registrarLog('Criação de Utilizador', `Criou a conta de ${nome} (${cargo})`);
-          document.getElementById('novo-user-nome').value = '';
-          document.getElementById('novo-user-email').value = '';
-          document.getElementById('novo-user-senha').value = '';
-          renderizarUsuarios();
-          Swal.fire('Sucesso!', 'Utilizador criado.', 'success');
-          adminAuthApp.auth().signOut(); // Limpa a instância fantasma
+        .ref('usuarios')
+        .once('value')
+        .then((snap) => {
+          if (!snap.exists()) {
+            cargo = 'admin_geral'; // Força o primeiro a ser Admin Geral
+            Swal.fire(
+              'Bem-vindo, Chefe!',
+              'Como você é o primeiro, a sua conta foi criada como Administrador Geral.',
+              'success',
+            );
+          } else {
+            Swal.fire('Sucesso!', 'Utilizador criado.', 'success');
+          }
+
+          database
+            .ref('usuarios/' + uid)
+            .set({ nome: nome, email: email, cargo: cargo })
+            .then(() => {
+              registrarLog('Criação de Utilizador', `Criou a conta de ${nome} (${cargo})`);
+              document.getElementById('novo-user-nome').value = '';
+              document.getElementById('novo-user-email').value = '';
+              document.getElementById('novo-user-senha').value = '';
+              renderizarUsuarios();
+              adminAuthApp.auth().signOut(); // Limpa a instância fantasma
+            });
         });
     })
     .catch((e) => Swal.fire('Erro', e.message, 'error'));
@@ -328,7 +378,7 @@ function apagarUsuario(uid, cargoAlvo) {
     return Swal.fire('Acesso Negado', 'Não tem permissão para apagar o Admin Geral.', 'error');
   Swal.fire({
     title: 'Apagar utilizador?',
-    text: 'Ele perderá acesso.',
+    text: 'Ele perderá o acesso.',
     icon: 'warning',
     showCancelButton: true,
   }).then((r) => {
@@ -410,14 +460,6 @@ function limparLogs() {
     }
   });
 }
-
-// Atalho de Teclado Secreto para o Painel (Ctrl + Shift + P)
-document.addEventListener('keydown', function (e) {
-  if (e.ctrlKey && e.shiftKey && e.key === 'P') {
-    e.preventDefault();
-    abrirPainelAdmin();
-  }
-});
 
 // ==========================================
 // 2. SISTEMA DE ABAS E SUB-ABAS (COM LOGS)
@@ -555,7 +597,7 @@ function renderizarSubAbas() {
 async function duplicarMes() {
   if (currentRole === 'guest') return;
   const mesesDisponiveis = Object.keys(dadosAbas[abaAtiva]);
-  if (mesesDisponiveis.length === 0) return Swal.fire('Erro', 'Não há meses.', 'error');
+  if (mesesDisponiveis.length === 0) return Swal.fire('Erro', 'Não há meses para copiar.', 'error');
   let optionsHtml = '';
   mesesDisponiveis.forEach((m) => {
     optionsHtml += `<option value="${m}" ${m === mesAtivo ? 'selected' : ''}>${m}</option>`;
@@ -841,7 +883,6 @@ async function moverProcessosLote() {
   }
 }
 
-// Lógica de Checkboxes (Excluir/Mover)
 function atualizarSelecao(checkbox, id) {
   if (currentRole === 'guest') return;
   if (checkbox.checked) IDsSelecionados.add(id);
@@ -1351,7 +1392,7 @@ function processarImportacaoExcel(event) {
         });
         abaAtiva = workbook.SheetNames[0];
         mesAtivo = 'Geral';
-        registrarLog('Importação', `Importou ${totalImportados} registos de Excel`);
+        registrarLog('Importação', `Importou ${totalImportados} registos do Excel`);
         salvarArquivoAutomaticamente();
         renderizarAbas();
         renderizarSubAbas();
@@ -1364,7 +1405,7 @@ function processarImportacaoExcel(event) {
   reader.readAsArrayBuffer(file);
 }
 
-// (Funções de Relatórios/Dashboard foram omitidas da mensagem por limite de espaço, mas já funcionam nativamente)
+// Dashboards e Relatorios
 function abrirDashboard() {
   document.getElementById('modal-dashboard').style.display = 'flex';
   atualizarGraficos();
