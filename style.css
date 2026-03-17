@@ -1,6 +1,3 @@
-/* ==========================================================
-   VARIÁVEIS DE CORES E CSS GERAL
-   ========================================================== */
 :root {
   --bg-body: #f4f7f6;
   --bg-container: #ffffff;
@@ -228,6 +225,7 @@ button:hover {
   padding: 6px 10px;
   font-size: 12px;
   border-radius: 4px;
+  margin-right: 5px;
 }
 .filtros-container {
   background-color: var(--bg-body);
@@ -367,11 +365,11 @@ th {
   background-clip: padding-box;
 }
 
-/* CORREÇÃO AQUI: Impede os botões de quebrarem de linha e centraliza-os */
+/* Correção visual: Impede que os botões da ação quebrem de linha e amassem */
 .coluna-acao {
   min-width: 95px;
   text-align: center;
-  white-space: nowrap; /* A mágica para não empilhar! */
+  white-space: nowrap;
 }
 .coluna-acao button {
   display: inline-flex;
@@ -603,7 +601,7 @@ button[onclick='window.print()'] {
   box-shadow: 0 4px 6px var(--shadow-color);
 }
 
-/* SweetAlert e Outros */
+/* SweetAlert */
 [data-theme='dark'] .swal2-popup {
   background: var(--bg-container);
   color: var(--text-main);
@@ -676,7 +674,7 @@ button[onclick='window.print()'] {
   }
 }
 
-/* Níveis de Acesso */
+/* Níveis de Acesso (Role-Based UI) */
 body[data-role='guest'] .block-guest,
 body[data-role='guest'] .coluna-acao,
 body[data-role='guest'] .aba-acoes {

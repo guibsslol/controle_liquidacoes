@@ -88,6 +88,7 @@ document.addEventListener('keydown', function (e) {
       adicionarRegistro();
     }
   }
+  // Atalho Secreto (Ctrl + Shift + P)
   if (e.ctrlKey && e.shiftKey && e.key === 'P') {
     e.preventDefault();
     abrirPainelAdmin();
@@ -185,7 +186,7 @@ function salvarArquivoAutomaticamente() {
 }
 
 // ==========================================
-// FUNÇÕES DE LOGIN (TRUQUE DO USERNAME) E ADMIN
+// FUNÇÕES DE LOGIN (USERNAME) E ADMIN
 // ==========================================
 function abrirModalLogin() {
   document.getElementById('modal-login').style.display = 'flex';
@@ -199,7 +200,6 @@ function fazerLogin() {
   const senha = document.getElementById('login-senha').value;
   if (!user || !senha) return Swal.fire('Aviso', 'Preencha o usuário e a senha', 'warning');
 
-  // O Truque do E-mail Fantasma para o Firebase aceitar
   const emailFake = user + '@bji.local';
 
   auth
@@ -237,11 +237,12 @@ function abrirPainelAdmin() {
     .ref('usuarios')
     .once('value')
     .then((snap) => {
+      // A MÁGICA: Abre se for admin, OU se não existir nenhum usuário!
       if (!snap.exists() || currentRole === 'admin_geral' || currentRole === 'admin_comum') {
         document.getElementById('modal-admin').style.display = 'flex';
         mudarAbaAdmin('usuarios');
       } else {
-        Swal.fire('Acesso Negado', 'Apenas administradores podem aceder.', 'error');
+        Swal.fire('Acesso Negado', 'Apenas administradores podem acessar.', 'error');
       }
     });
 }
@@ -1227,7 +1228,6 @@ function criarElementoTR(reg) {
   const isChecked = IDsSelecionados.has(reg.id) ? 'checked' : '';
 
   if (linhaEmEdicao === reg.id) {
-    // ATUALIZADO: td.coluna-acao tem style="white-space: nowrap;" e está correto
     tr.innerHTML = `
         <td class="coluna-acao"></td>
         <td><input type="text" id="edit-processo-${reg.id}" class="input-inline" value="${reg.processo}" oninput="mascaraProcesso(event)"></td>
