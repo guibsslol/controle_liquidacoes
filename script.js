@@ -88,7 +88,6 @@ document.addEventListener('keydown', function (e) {
       adicionarRegistro();
     }
   }
-  // Atalho Secreto (Ctrl + Shift + P)
   if (e.ctrlKey && e.shiftKey && e.key === 'P') {
     e.preventDefault();
     abrirPainelAdmin();
@@ -190,6 +189,14 @@ function salvarArquivoAutomaticamente() {
 // ==========================================
 function abrirModalLogin() {
   document.getElementById('modal-login').style.display = 'flex';
+  const savedUser = localStorage.getItem('savedUsername');
+  if (savedUser) {
+    document.getElementById('login-username').value = savedUser;
+    document.getElementById('login-lembrar').checked = true;
+    document.getElementById('login-senha').focus();
+  } else {
+    document.getElementById('login-username').focus();
+  }
 }
 function fecharModalLogin() {
   document.getElementById('modal-login').style.display = 'none';
@@ -198,6 +205,8 @@ function fecharModalLogin() {
 function fazerLogin() {
   const user = document.getElementById('login-username').value.trim().toLowerCase();
   const senha = document.getElementById('login-senha').value;
+  const lembrar = document.getElementById('login-lembrar').checked;
+
   if (!user || !senha) return Swal.fire('Aviso', 'Preencha o usuário e a senha', 'warning');
 
   const emailFake = user + '@bji.local';
@@ -205,9 +214,11 @@ function fazerLogin() {
   auth
     .signInWithEmailAndPassword(emailFake, senha)
     .then(() => {
+      if (lembrar) localStorage.setItem('savedUsername', user);
+      else localStorage.removeItem('savedUsername');
+
       fecharModalLogin();
-      document.getElementById('login-username').value = '';
-      document.getElementById('login-senha').value = '';
+      document.getElementById('login-senha').value = ''; // Só limpa a senha por segurança
       Swal.fire({
         icon: 'success',
         title: 'Login efetuado!',
@@ -237,7 +248,6 @@ function abrirPainelAdmin() {
     .ref('usuarios')
     .once('value')
     .then((snap) => {
-      // A MÁGICA: Abre se for admin, OU se não existir nenhum usuário!
       if (!snap.exists() || currentRole === 'admin_geral' || currentRole === 'admin_comum') {
         document.getElementById('modal-admin').style.display = 'flex';
         mudarAbaAdmin('usuarios');

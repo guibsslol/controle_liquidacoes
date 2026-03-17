@@ -8,11 +8,9 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
-
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 </head>
 
@@ -26,10 +24,8 @@
             style="background:none; border:none; box-shadow:none; font-size: 18px; color: var(--text-main);"><i
               class="fa-solid fa-moon"></i></button>
           <span id="status-conexao"
-            style="font-size: 13px; color: #f39c12; font-weight: bold; background: var(--bg-header); padding: 5px 10px; border-radius: 20px; border: 1px solid var(--border-color);">
-            <i class="fa-solid fa-spinner fa-spin"></i> Conectando...
-          </span>
-
+            style="font-size: 13px; color: #f39c12; font-weight: bold; background: var(--bg-header); padding: 5px 10px; border-radius: 20px; border: 1px solid var(--border-color);"><i
+              class="fa-solid fa-spinner fa-spin"></i> Conectando...</span>
           <div id="auth-container"
             style="display: flex; align-items: center; gap: 10px; border-left: 2px solid var(--border-color); padding-left: 15px;">
             <span id="nome-usuario-logado"
@@ -58,47 +54,29 @@
             </div>
           </div>
         </div>
-        <div class="card card-pendente">
-          <i class="fa-solid fa-clock"></i>
-          <div class="card-info">
-            <span class="card-titulo">Aguardar Pagamento</span>
-            <span class="card-valor" id="resumo-pendente">0</span>
-          </div>
+        <div class="card card-pendente"><i class="fa-solid fa-clock"></i>
+          <div class="card-info"><span class="card-titulo">Aguardar Pagamento</span><span class="card-valor"
+              id="resumo-pendente">0</span></div>
         </div>
-        <div class="card card-sem-op">
-          <i class="fa-solid fa-triangle-exclamation"></i>
-          <div class="card-info">
-            <span class="card-titulo">Pagas Sem OP</span>
-            <span class="card-valor" id="resumo-sem-op">0</span>
-          </div>
+        <div class="card card-sem-op"><i class="fa-solid fa-triangle-exclamation"></i>
+          <div class="card-info"><span class="card-titulo">Pagas Sem OP</span><span class="card-valor"
+              id="resumo-sem-op">0</span></div>
         </div>
-        <div class="card card-pago">
-          <i class="fa-solid fa-check-double"></i>
-          <div class="card-info">
-            <span class="card-titulo">Pagas com OP</span>
-            <span class="card-valor" id="resumo-pago">0</span>
-          </div>
+        <div class="card card-pago"><i class="fa-solid fa-check-double"></i>
+          <div class="card-info"><span class="card-titulo">Pagas com OP</span><span class="card-valor"
+              id="resumo-pago">0</span></div>
         </div>
       </div>
 
       <div class="form-row block-guest" id="area-formulario">
-        <div class="input-group">
-          <label>Nº Processo</label>
-          <input type="text" id="processo" list="lista-processos" placeholder="BJI-XXXXXX/XXXXXX/XXXX"
-            oninput="mascaraProcesso(event)" />
-          <datalist id="lista-processos"></datalist>
-        </div>
-        <div class="input-group" style="flex: 2">
-          <label>Nome Empresa/Fornecedor</label>
-          <input type="text" id="empresa" list="lista-empresas"
-            placeholder="Nome da empresa, fornecedor ou prestador de serviço" />
-          <datalist id="lista-empresas"></datalist>
-        </div>
-        <div class="input-group">
-          <label>Elemento/Serviço</label>
-          <input type="text" id="elemento" list="lista-elementos" placeholder="Elemento do empenho" />
-          <datalist id="lista-elementos"></datalist>
-        </div>
+        <div class="input-group"><label>Nº Processo</label><input type="text" id="processo" list="lista-processos"
+            placeholder="BJI-XXXXXX/XXXXXX/XXXX" oninput="mascaraProcesso(event)" /><datalist
+            id="lista-processos"></datalist></div>
+        <div class="input-group" style="flex: 2"><label>Nome Empresa/Fornecedor</label><input type="text" id="empresa"
+            list="lista-empresas" placeholder="Nome da empresa, fornecedor ou prestador de serviço" /><datalist
+            id="lista-empresas"></datalist></div>
+        <div class="input-group"><label>Elemento/Serviço</label><input type="text" id="elemento" list="lista-elementos"
+            placeholder="Elemento do empenho" /><datalist id="lista-elementos"></datalist></div>
       </div>
 
       <div class="form-row block-guest">
@@ -106,13 +84,10 @@
             placeholder="Ex: 123" /><datalist id="lista-empenhos"></datalist></div>
         <div class="input-group"><label>Nº Liquidação</label><input type="text" id="liquidacao" placeholder="Ex: 1/1" />
         </div>
-        <div class="input-group">
-          <label>Estado</label>
-          <select id="status_pagamento">
+        <div class="input-group"><label>Estado</label><select id="status_pagamento">
             <option value="Aguardando Pagamento">Aguardando Pagamento</option>
             <option value="Pago">Pago</option>
-          </select>
-        </div>
+          </select></div>
         <div class="input-group"><label>Nº OP</label><input type="text" id="op" placeholder="Se pago, insira a OP" />
         </div>
       </div>
@@ -128,12 +103,10 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
           <h4 style="margin: 0; color: var(--text-muted);"><i class="fa-solid fa-filter"></i> Filtrar Mês Atual</h4>
           <label
-            style="cursor: pointer; font-size: 13px; font-weight: bold; color: #2980b9; display: flex; align-items: center; gap: 5px; background: var(--bg-body); padding: 5px 10px; border-radius: 5px;">
-            <input type="checkbox" id="chk-agrupar-empresa" onchange="renderizarTabela()">
-            <i class="fa-solid fa-layer-group"></i> Agrupar por Empresa
-          </label>
+            style="cursor: pointer; font-size: 13px; font-weight: bold; color: #2980b9; display: flex; align-items: center; gap: 5px; background: var(--bg-body); padding: 5px 10px; border-radius: 5px;"><input
+              type="checkbox" id="chk-agrupar-empresa" onchange="renderizarTabela()"><i
+              class="fa-solid fa-layer-group"></i> Agrupar por Empresa</label>
         </div>
-
         <div class="form-row">
           <select id="filtro-processo" onchange="renderizarTabela()">
             <option value="">Todos os Processos</option>
@@ -160,14 +133,12 @@
         <button class="btn-novo-mes block-guest" onclick="criarNovoMes()"><i class="fa-solid fa-calendar-plus"></i> Novo
           Mês</button>
         <button class="btn-novo-mes block-guest" onclick="duplicarMes()"
-          style="background-color: #3498db; margin-left: 5px" title="Copiar dados"><i class="fa-solid fa-copy"></i>
-          Copiar Mês</button>
-
+          style="background-color: #3498db; margin-left: 5px"><i class="fa-solid fa-copy"></i> Copiar Mês</button>
         <div style="margin-left: auto; display: flex; gap: 5px;">
-          <button class="btn-novo-mes" onclick="abrirDashboard()" style="background-color: #8e44ad;"
-            title="Painel Gerencial"><i class="fa-solid fa-chart-pie"></i> Dashboard</button>
-          <button class="btn-novo-mes" onclick="abrirRelatorioPendencias()" style="background-color: #e74c3c;"
-            title="Ver pendências"><i class="fa-solid fa-magnifying-glass-chart"></i> Pendências Globais</button>
+          <button class="btn-novo-mes" onclick="abrirDashboard()" style="background-color: #8e44ad;"><i
+              class="fa-solid fa-chart-pie"></i> Dashboard</button>
+          <button class="btn-novo-mes" onclick="abrirRelatorioPendencias()" style="background-color: #e74c3c;"><i
+              class="fa-solid fa-magnifying-glass-chart"></i> Pendências Globais</button>
         </div>
       </div>
 
@@ -226,13 +197,11 @@
         <button class="block-guest" onclick="document.getElementById('input-importar-excel').click()"
           style="background-color: #f39c12; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);"><i
             class="fa-solid fa-file-import"></i> Importar Excel</button>
-
         <input type="file" id="input-restaurar-json" accept=".json" style="display: none"
           onchange="restaurarBackup(event)" />
         <button class="admin-only" onclick="document.getElementById('input-restaurar-json').click()"
           style="background-color: #e67e22; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15); display: none;"><i
             class="fa-solid fa-cloud-arrow-up"></i> Restaurar JSON</button>
-
         <button class="admin-only" onclick="fazerBackupSeguranca()"
           style="background-color: #34495e; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15); display: none;"><i
             class="fa-solid fa-download"></i> Backup JSON</button>
@@ -258,9 +227,15 @@
           <input type="text" id="login-username" placeholder="Digite o seu usuário" class="input-inline"
             style="text-transform: lowercase;">
         </div>
-        <div class="input-group" style="margin-bottom: 20px;">
+        <div class="input-group" style="margin-bottom: 15px;">
           <label>Senha</label>
           <input type="password" id="login-senha" placeholder="******" class="input-inline">
+        </div>
+        <div style="margin-bottom: 20px; text-align: left; font-size: 13px;">
+          <label
+            style="cursor: pointer; display: flex; align-items: center; gap: 5px; color: var(--text-main); font-weight: bold;">
+            <input type="checkbox" id="login-lembrar"> Lembrar meu usuário
+          </label>
         </div>
         <button onclick="fazerLogin()" style="width: 100%; background-color: #2980b9; color: white; font-size: 15px;"><i
             class="fa-solid fa-right-to-bracket"></i> Entrar no Sistema</button>
@@ -283,7 +258,6 @@
             style="flex: 1; border-radius: 0; box-shadow: none; background: transparent; color: var(--text-muted); border-bottom: 3px solid transparent;">Histórico
             de Auditoria</button>
         </div>
-
         <div id="admin-tab-usuarios" style="padding: 20px; overflow-y: auto;">
           <div
             style="background: var(--bg-body); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px;">
@@ -296,13 +270,10 @@
                   placeholder="Ex: joao123" style="text-transform: lowercase;"></div>
               <div class="input-group"><label>Senha Inicial</label><input type="password" id="novo-user-senha"
                   placeholder="Mínimo 6 chars"></div>
-              <div class="input-group">
-                <label>Cargo</label>
-                <select id="novo-user-cargo">
+              <div class="input-group"><label>Cargo</label><select id="novo-user-cargo">
                   <option value="comum">Usuário Comum (Lançamentos)</option>
                   <option value="admin_comum">Administrador Comum</option>
-                </select>
-              </div>
+                </select></div>
               <button onclick="criarNovoUsuario()" style="background: #27ae60; color: white; margin-bottom: 2px;"><i
                   class="fa-solid fa-check"></i> Registar</button>
             </div>
@@ -319,15 +290,13 @@
             <tbody id="tabela-usuarios-corpo"></tbody>
           </table>
         </div>
-
         <div id="admin-tab-logs" style="display: none; padding: 20px; overflow-y: auto; height: 100%;">
           <div class="filtros-container" style="margin-top: 0; margin-bottom: 15px; padding: 10px;">
-            <div class="form-row" style="margin-bottom: 0;">
-              <input type="text" id="filtro-log-texto" placeholder="Buscar por Nome, Processo ou Ação..."
-                class="input-inline" style="flex: 2;" oninput="renderizarLogs()">
-              <button onclick="limparLogs()" style="background: #e74c3c; color: white; padding: 6px 15px;"><i
-                  class="fa-solid fa-trash"></i> Limpar Histórico</button>
-            </div>
+            <div class="form-row" style="margin-bottom: 0;"><input type="text" id="filtro-log-texto"
+                placeholder="Buscar por Nome, Processo ou Ação..." class="input-inline" style="flex: 2;"
+                oninput="renderizarLogs()"><button onclick="limparLogs()"
+                style="background: #e74c3c; color: white; padding: 6px 15px;"><i class="fa-solid fa-trash"></i> Limpar
+                Histórico</button></div>
           </div>
           <table style="width: 100%; border-collapse: separate; font-size: 12px;">
             <thead>
