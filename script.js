@@ -13,9 +13,13 @@ const database = firebase.database();
 const auth = firebase.auth();
 const adminAuthApp = firebase.initializeApp(firebaseConfig, 'AdminAuthApp');
 
+// Variáveis Principais (Agora com Arrays de Ordem)
 let dadosAbas = { 'Assunto Geral': { Janeiro: [] } };
+let ordemAbas = [];
+let ordemSubAbas = {};
 let abaAtiva = 'Assunto Geral';
 let mesAtivo = 'Janeiro';
+
 let abaArrastada = null;
 let subAbaArrastada = null;
 let linhaEmEdicao = null;
@@ -96,6 +100,7 @@ document.addEventListener('keydown', function (e) {
 
 window.onload = () => {
   if (localStorage.getItem('tema') === 'dark') document.body.setAttribute('data-theme', 'dark');
+
   auth.onAuthStateChanged((user) => {
     if (user) {
       currentUser = user;
@@ -122,19 +127,53 @@ window.onload = () => {
     const data = snapshot.val();
     if (data && data.abas) {
       dadosAbas = data.abas;
+      let chavesBanco = Object.keys(dadosAbas);
+
+      // Sincroniza a Ordem Customizada das Abas
+      if (data.ordemAbas) {
+        ordemAbas = data.ordemAbas.filter((a) => chavesBanco.includes(a));
+        chavesBanco.forEach((a) => {
+          if (!ordemAbas.includes(a)) ordemAbas.push(a);
+        });
+      } else {
+        ordemAbas = chavesBanco;
+      }
+
+      // Sincroniza a Ordem Customizada das Sub-Abas
+      if (data.ordemSubAbas) {
+        ordemSubAbas = data.ordemSubAbas;
+      } else {
+        ordemSubAbas = {};
+      }
+
+      Object.keys(dadosAbas).forEach((aba) => {
+        let mesesBanco = Object.keys(dadosAbas[aba]);
+        if (!ordemSubAbas[aba]) {
+          ordemSubAbas[aba] = mesesBanco;
+        } else {
+          ordemSubAbas[aba] = ordemSubAbas[aba].filter((m) => mesesBanco.includes(m));
+          mesesBanco.forEach((m) => {
+            if (!ordemSubAbas[aba].includes(m)) ordemSubAbas[aba].push(m);
+          });
+        }
+      });
+
       let abaMemoria = localStorage.getItem('ultimaAba');
-      abaAtiva =
-        abaMemoria && dadosAbas[abaMemoria] ? abaMemoria : data.ativa || Object.keys(dadosAbas)[0];
+      abaAtiva = abaMemoria && dadosAbas[abaMemoria] ? abaMemoria : data.ativa || ordemAbas[0];
+
       let mesMemoria = localStorage.getItem('ultimoMes');
       mesAtivo =
         mesMemoria && dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesMemoria]
           ? mesMemoria
-          : Object.keys(dadosAbas[abaAtiva])[0] || 'Geral';
+          : ordemSubAbas[abaAtiva][0] || 'Geral';
     } else {
       dadosAbas = { 'Assunto Geral': { Janeiro: [] } };
+      ordemAbas = ['Assunto Geral'];
+      ordemSubAbas = { 'Assunto Geral': ['Janeiro'] };
       abaAtiva = 'Assunto Geral';
       mesAtivo = 'Janeiro';
     }
+
     renderizarAbas();
     renderizarSubAbas();
     renderizarTabela();
@@ -179,8 +218,6 @@ function registrarLog(acao, detalhes) {
 
 function salvarArquivoAutomaticamente() {
   if (currentRole === 'guest') return;
-
-  // A MÁGICA: Evita que o Firebase apague as abas vazias injetando um Fantasma (Dummy)
   for (let aba in dadosAbas) {
     for (let mes in dadosAbas[aba]) {
       let reais = dadosAbas[aba][mes] ? dadosAbas[aba][mes].filter((r) => !r.isDummy) : [];
@@ -204,14 +241,15 @@ function salvarArquivoAutomaticamente() {
     }
   }
 
+  // AGORA SALVAMOS A ORDEM EXACTA NAS NUVENS
   database
     .ref('sistema')
-    .set({ abas: dadosAbas, ativa: abaAtiva })
+    .set({ abas: dadosAbas, ativa: abaAtiva, ordemAbas: ordemAbas, ordemSubAbas: ordemSubAbas })
     .catch((e) => console.log(e));
 }
 
 // ==========================================
-// FUNÇÕES DE LOGIN E ADMIN
+// LOGIN E ADMIN
 // ==========================================
 function abrirModalLogin() {
   document.getElementById('modal-login').style.display = 'flex';
@@ -353,7 +391,6 @@ function criarNovoUsuario() {
           } else {
             Swal.fire('Sucesso!', 'Utilizador criado.', 'success');
           }
-
           database
             .ref('usuarios/' + uid)
             .set({ nome: nome, username: username, cargo: cargo })
@@ -450,12 +487,15 @@ function limparLogs() {
 }
 
 // ==========================================
-// 2. SISTEMA DE ABAS E SUB-ABAS
+// 2. SISTEMA DE ABAS E SUB-ABAS (AGORA USA ORDEM PERSONALIZADA)
 // ==========================================
 function renderizarAbas() {
   const listaAbas = document.getElementById('lista-abas');
   listaAbas.innerHTML = '';
-  Object.keys(dadosAbas).forEach((nomeAba) => {
+
+  // Utiliza a variável global ordemAbas no lugar das chaves do Firebase
+  ordemAbas.forEach((nomeAba) => {
+    if (!dadosAbas[nomeAba]) return; // Proteção
     const divAba = document.createElement('div');
     divAba.className = `aba ${nomeAba === abaAtiva ? 'ativa' : ''}`;
     divAba.setAttribute('draggable', currentRole !== 'guest');
@@ -463,7 +503,7 @@ function renderizarAbas() {
 
     divAba.onclick = () => {
       abaAtiva = nomeAba;
-      mesAtivo = Object.keys(dadosAbas[abaAtiva])[0];
+      mesAtivo = ordemSubAbas[abaAtiva][0] || 'Geral';
       linhaEmEdicao = null;
       IDsSelecionados.clear();
       localStorage.setItem('ultimaAba', abaAtiva);
@@ -500,12 +540,8 @@ function renderizarAbas() {
         e.stopPropagation();
         this.classList.remove('drag-over');
         if (abaArrastada !== nomeAba) {
-          const chaves = Object.keys(dadosAbas);
-          chaves.splice(chaves.indexOf(abaArrastada), 1);
-          chaves.splice(chaves.indexOf(nomeAba), 0, abaArrastada);
-          const novo = {};
-          chaves.forEach((c) => (novo[c] = dadosAbas[c]));
-          dadosAbas = novo;
+          ordemAbas.splice(ordemAbas.indexOf(abaArrastada), 1);
+          ordemAbas.splice(ordemAbas.indexOf(nomeAba), 0, abaArrastada);
           registrarLog('Ordenação', `Reordenou o assunto ${abaArrastada}`);
           salvarArquivoAutomaticamente();
           renderizarAbas();
@@ -520,9 +556,11 @@ function renderizarAbas() {
 function renderizarSubAbas() {
   const listaMeses = document.getElementById('lista-sub-abas');
   listaMeses.innerHTML = '';
-  if (!dadosAbas[abaAtiva]) return;
+  if (!dadosAbas[abaAtiva] || !ordemSubAbas[abaAtiva]) return;
 
-  Object.keys(dadosAbas[abaAtiva]).forEach((nomeMes) => {
+  // Utiliza a variável ordemSubAbas
+  ordemSubAbas[abaAtiva].forEach((nomeMes) => {
+    if (!dadosAbas[abaAtiva][nomeMes]) return;
     const divMes = document.createElement('div');
     divMes.className = `sub-aba ${nomeMes === mesAtivo ? 'ativa' : ''}`;
     divMes.setAttribute('draggable', currentRole !== 'guest');
@@ -563,14 +601,9 @@ function renderizarSubAbas() {
         e.stopPropagation();
         this.classList.remove('drag-over');
         if (subAbaArrastada !== nomeMes) {
-          const chaves = Object.keys(dadosAbas[abaAtiva]);
-          chaves.splice(chaves.indexOf(subAbaArrastada), 1);
-          chaves.splice(chaves.indexOf(nomeMes), 0, subAbaArrastada);
-          const novoObjetoMeses = {};
-          chaves.forEach((chave) => {
-            novoObjetoMeses[chave] = dadosAbas[abaAtiva][chave];
-          });
-          dadosAbas[abaAtiva] = novoObjetoMeses;
+          let ordem = ordemSubAbas[abaAtiva];
+          ordem.splice(ordem.indexOf(subAbaArrastada), 1);
+          ordem.splice(ordem.indexOf(nomeMes), 0, subAbaArrastada);
           registrarLog('Ordenação', `Reordenou o mês ${subAbaArrastada}`);
           salvarArquivoAutomaticamente();
           renderizarSubAbas();
@@ -584,7 +617,7 @@ function renderizarSubAbas() {
 
 async function duplicarMes() {
   if (currentRole === 'guest') return;
-  const mesesDisponiveis = Object.keys(dadosAbas[abaAtiva]);
+  const mesesDisponiveis = ordemSubAbas[abaAtiva];
   if (mesesDisponiveis.length === 0) return Swal.fire('Erro', 'Não há meses para copiar.', 'error');
   let optionsHtml = '';
   mesesDisponiveis.forEach((m) => {
@@ -615,6 +648,7 @@ async function duplicarMes() {
 
   if (formValues) {
     dadosAbas[abaAtiva][formValues.novoMes] = [];
+    ordemSubAbas[abaAtiva].push(formValues.novoMes);
     dadosAbas[abaAtiva][formValues.origem].forEach((reg, index) => {
       if (reg.isDummy) return;
       dadosAbas[abaAtiva][formValues.novoMes].push({
@@ -648,6 +682,9 @@ async function editarNomeAba(nomeAtual) {
   if (novoNome && novoNome.trim() !== '' && novoNome !== nomeAtual && !dadosAbas[novoNome]) {
     dadosAbas[novoNome] = dadosAbas[nomeAtual];
     delete dadosAbas[nomeAtual];
+    ordemAbas[ordemAbas.indexOf(nomeAtual)] = novoNome;
+    ordemSubAbas[novoNome] = ordemSubAbas[nomeAtual];
+    delete ordemSubAbas[nomeAtual];
     if (abaAtiva === nomeAtual) {
       abaAtiva = novoNome;
       localStorage.setItem('ultimaAba', abaAtiva);
@@ -668,8 +705,10 @@ function excluirAba(nomeAba) {
     }).then((r) => {
       if (r.isConfirmed) {
         delete dadosAbas[nomeAba];
-        abaAtiva = Object.keys(dadosAbas)[0];
-        mesAtivo = Object.keys(dadosAbas[abaAtiva])[0];
+        ordemAbas = ordemAbas.filter((a) => a !== nomeAba);
+        delete ordemSubAbas[nomeAba];
+        abaAtiva = ordemAbas[0];
+        mesAtivo = ordemSubAbas[abaAtiva][0];
         registrarLog('Exclusão de Assunto', `Apagou o assunto ${nomeAba} inteiro`);
         salvarArquivoAutomaticamente();
         renderizarAbas();
@@ -690,6 +729,8 @@ async function criarNovaAba() {
   });
   if (nome && nome.trim() !== '' && !dadosAbas[nome]) {
     dadosAbas[nome] = { Geral: [] };
+    ordemAbas.push(nome);
+    ordemSubAbas[nome] = ['Geral'];
     abaAtiva = nome;
     mesAtivo = 'Geral';
     registrarLog('Novo Assunto', `Criou o assunto ${nome}`);
@@ -715,6 +756,7 @@ async function editarNomeMes(nomeAtual) {
   ) {
     dadosAbas[abaAtiva][novoNome] = dadosAbas[abaAtiva][nomeAtual];
     delete dadosAbas[abaAtiva][nomeAtual];
+    ordemSubAbas[abaAtiva][ordemSubAbas[abaAtiva].indexOf(nomeAtual)] = novoNome;
     if (mesAtivo === nomeAtual) {
       mesAtivo = novoNome;
     }
@@ -734,7 +776,8 @@ function excluirMes(nomeMes) {
     }).then((r) => {
       if (r.isConfirmed) {
         delete dadosAbas[abaAtiva][nomeMes];
-        mesAtivo = Object.keys(dadosAbas[abaAtiva])[0];
+        ordemSubAbas[abaAtiva] = ordemSubAbas[abaAtiva].filter((m) => m !== nomeMes);
+        mesAtivo = ordemSubAbas[abaAtiva][0];
         registrarLog('Exclusão de Mês', `Apagou o mês ${nomeMes}`);
         salvarArquivoAutomaticamente();
         renderizarSubAbas();
@@ -754,6 +797,7 @@ async function criarNovoMes() {
   });
   if (nome && nome.trim() !== '' && !dadosAbas[abaAtiva][nome]) {
     dadosAbas[abaAtiva][nome] = [];
+    ordemSubAbas[abaAtiva].push(nome);
     mesAtivo = nome;
     registrarLog('Novo Mês', `Criou o mês ${nome}`);
     salvarArquivoAutomaticamente();
@@ -764,7 +808,7 @@ async function criarNovoMes() {
 
 async function agruparAbas() {
   if (currentRole === 'guest') return;
-  const abasDisponiveis = Object.keys(dadosAbas);
+  const abasDisponiveis = ordemAbas;
   if (abasDisponiveis.length < 2) return;
   let htmlCheckboxes =
     '<div style="text-align: left; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid var(--border-color); border-radius: 5px; background: var(--bg-header);">';
@@ -793,19 +837,30 @@ async function agruparAbas() {
 
   if (formValues) {
     const { selecionados, novoNome } = formValues;
-    if (!dadosAbas[novoNome]) dadosAbas[novoNome] = {};
+    if (!dadosAbas[novoNome]) {
+      dadosAbas[novoNome] = {};
+      ordemAbas.push(novoNome);
+      ordemSubAbas[novoNome] = [];
+    }
     selecionados.forEach((abaAntiga) => {
-      Object.keys(dadosAbas[abaAntiga]).forEach((mesAntigo) => {
+      ordemSubAbas[abaAntiga].forEach((mesAntigo) => {
         let novoNomeMes = abaAntiga.replace('LIQ. ', '').replace('LIQ.', '').trim();
         let registosReais = dadosAbas[abaAntiga][mesAntigo].filter((r) => !r.isDummy);
+
+        if (!ordemSubAbas[novoNome].includes(novoNomeMes)) ordemSubAbas[novoNome].push(novoNomeMes);
+
         if (dadosAbas[novoNome][novoNomeMes])
           dadosAbas[novoNome][novoNomeMes] = dadosAbas[novoNome][novoNomeMes].concat(registosReais);
         else dadosAbas[novoNome][novoNomeMes] = registosReais;
       });
-      if (abaAntiga !== novoNome) delete dadosAbas[abaAntiga];
+      if (abaAntiga !== novoNome) {
+        delete dadosAbas[abaAntiga];
+        ordemAbas = ordemAbas.filter((a) => a !== abaAntiga);
+        delete ordemSubAbas[abaAntiga];
+      }
     });
     abaAtiva = novoNome;
-    mesAtivo = Object.keys(dadosAbas[novoNome])[0];
+    mesAtivo = ordemSubAbas[novoNome][0];
     registrarLog('Agrupamento', `Agrupou ${selecionados.length} assuntos em ${novoNome}`);
     salvarArquivoAutomaticamente();
     renderizarAbas();
@@ -826,11 +881,7 @@ async function moverProcessosLote() {
             </select>
             <input id="swal-move-valor" class="swal2-input" placeholder="Valor exato..." style="width:100%; box-sizing:border-box; margin:0 0 20px 0;">
             <p style="margin-bottom:5px; font-weight:bold; color:var(--text-main);">Mover para:</p>
-            <select id="swal-move-aba" class="swal2-select" style="width:100%; box-sizing:border-box; margin:0 0 10px 0;">${Object.keys(
-              dadosAbas,
-            )
-              .map((a) => `<option value="${a}">${a}</option>`)
-              .join('')}</select>
+            <select id="swal-move-aba" class="swal2-select" style="width:100%; box-sizing:border-box; margin:0 0 10px 0;">${ordemAbas.map((a) => `<option value="${a}">${a}</option>`).join('')}</select>
             <input id="swal-move-mes" class="swal2-input" placeholder="Mês Destino" style="width:100%; box-sizing:border-box; margin:0;">
         </div>`,
     focusConfirm: false,
@@ -857,7 +908,11 @@ async function moverProcessosLote() {
     });
     if (processosMovidos.length === 0)
       return Swal.fire('Nenhum encontrado', `Nada coincide com a busca.`, 'info');
-    if (!dadosAbas[abaDestino][mesDestino]) dadosAbas[abaDestino][mesDestino] = [];
+
+    if (!dadosAbas[abaDestino][mesDestino]) {
+      dadosAbas[abaDestino][mesDestino] = [];
+      if (!ordemSubAbas[abaDestino].includes(mesDestino)) ordemSubAbas[abaDestino].push(mesDestino);
+    }
     dadosAbas[abaDestino][mesDestino] = dadosAbas[abaDestino][mesDestino].concat(processosMovidos);
     dadosAbas[abaAtiva][mesAtivo] = processosRestantes;
     registrarLog(
@@ -922,9 +977,7 @@ function excluirSelecionados() {
 
 async function moverSelecionados() {
   if (currentRole === 'guest') return;
-  let abasOptions = Object.keys(dadosAbas)
-    .map((a) => `<option value="${a}">${a}</option>`)
-    .join('');
+  let abasOptions = ordemAbas.map((a) => `<option value="${a}">${a}</option>`).join('');
   const { value: formValues } = await Swal.fire({
     title: `Mover ${IDsSelecionados.size} Processos`,
     html: `
@@ -938,8 +991,8 @@ async function moverSelecionados() {
         const aba = document.getElementById('swal-move-sel-aba').value;
         const selMes = document.getElementById('swal-move-sel-mes');
         selMes.innerHTML = '<option value="">Selecione...</option>';
-        if (aba && dadosAbas[aba]) {
-          Object.keys(dadosAbas[aba]).forEach((m) => {
+        if (aba && ordemSubAbas[aba]) {
+          ordemSubAbas[aba].forEach((m) => {
             selMes.innerHTML += `<option value="${m}">${m}</option>`;
           });
         }
@@ -966,7 +1019,10 @@ async function moverSelecionados() {
       if (IDsSelecionados.has(reg.id)) processosMovidos.push(reg);
       else processosRestantes.push(reg);
     });
-    if (!dadosAbas[abaDestino][mesDestino]) dadosAbas[abaDestino][mesDestino] = [];
+    if (!dadosAbas[abaDestino][mesDestino]) {
+      dadosAbas[abaDestino][mesDestino] = [];
+      if (!ordemSubAbas[abaDestino].includes(mesDestino)) ordemSubAbas[abaDestino].push(mesDestino);
+    }
     dadosAbas[abaDestino][mesDestino] = dadosAbas[abaDestino][mesDestino].concat(processosMovidos);
     dadosAbas[abaAtiva][mesAtivo] = processosRestantes;
     registrarLog(
@@ -1135,7 +1191,6 @@ function salvarEdicaoInline(id) {
       `edit-status-${id}`,
     ).value;
     dadosAbas[abaAtiva][mesAtivo][index].op = document.getElementById(`edit-op-${id}`).value.trim();
-
     registrarLog(
       'Edição',
       `Editou os dados da empresa ${dadosAbas[abaAtiva][mesAtivo][index].empresa}`,
@@ -1358,8 +1413,11 @@ function processarImportacaoExcel(event) {
         workbook.SheetNames.forEach((sheetName) => {
           const worksheet = workbook.Sheets[sheetName];
           const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          if (!dadosAbas[sheetName]) dadosAbas[sheetName] = { Geral: [] };
-          else if (!dadosAbas[sheetName]['Geral']) dadosAbas[sheetName]['Geral'] = [];
+          if (!dadosAbas[sheetName]) {
+            dadosAbas[sheetName] = { Geral: [] };
+            ordemAbas.push(sheetName);
+            ordemSubAbas[sheetName] = ['Geral'];
+          } else if (!dadosAbas[sheetName]['Geral']) dadosAbas[sheetName]['Geral'] = [];
           for (let i = 1; i < json.length; i++) {
             const row = json[i];
             if (!row || row.length === 0) continue;
@@ -1554,3 +1612,33 @@ window.irParaProcesso = function (aba, mes, id) {
     }
   }, 300);
 };
+
+// Funcao de Restaurar Backup
+function restaurarBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const importado = JSON.parse(e.target.result);
+      if (importado && importado.abas) {
+        dadosAbas = importado.abas;
+        ordemAbas = importado.ordemAbas || Object.keys(dadosAbas);
+        ordemSubAbas = importado.ordemSubAbas || {};
+        Object.keys(dadosAbas).forEach((aba) => {
+          if (!ordemSubAbas[aba]) ordemSubAbas[aba] = Object.keys(dadosAbas[aba]);
+        });
+        abaAtiva = importado.ativa || ordemAbas[0];
+        mesAtivo = ordemSubAbas[abaAtiva][0] || 'Geral';
+        salvarArquivoAutomaticamente();
+        Swal.fire('Restaurado!', 'Seu backup foi enviado para a nuvem com sucesso!', 'success');
+      } else {
+        Swal.fire('Erro', 'O arquivo JSON não possui a estrutura correta.', 'error');
+      }
+    } catch (err) {
+      Swal.fire('Erro', 'Arquivo JSON inválido ou corrompido.', 'error');
+    }
+    document.getElementById('input-restaurar-json').value = '';
+  };
+  reader.readAsText(file);
+}
