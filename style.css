@@ -11,7 +11,7 @@
   --aba-inativa: #e2e8f0;
   --aba-hover: #cbd5e1;
   --aba-ativa: #ffffff;
-  --table-border: #e0e0e0; /* <-- A variável desaparecida voltou! */
+  --table-border: #e0e0e0;
   --shadow-color: rgba(0, 0, 0, 0.1);
   --th-shadow:
     inset 0 1px 0 #e0e0e0, inset 0 -2px 0 #bdc3c7, inset -1px 0 0 #e0e0e0, inset 1px 0 0 #e0e0e0;
@@ -29,7 +29,7 @@
   --aba-inativa: #2a2a2a;
   --aba-hover: #3a3a3a;
   --aba-ativa: #1e1e1e;
-  --table-border: #333333; /* <-- Bordas no modo escuro */
+  --table-border: #333333;
   --shadow-color: rgba(0, 0, 0, 0.5);
   --th-shadow: inset 0 1px 0 #444, inset 0 -2px 0 #555, inset -1px 0 0 #444, inset 1px 0 0 #444;
 }
@@ -270,6 +270,7 @@ button:hover {
   gap: 8px;
 }
 .sub-aba {
+  flex-shrink: 0;
   padding: 6px 15px;
   background-color: var(--aba-inativa);
   border: 1px solid var(--border-color);
@@ -309,7 +310,9 @@ button:hover {
   z-index: 11;
   box-shadow: 0 -4px 8px var(--shadow-color);
 }
+
 .btn-novo-mes {
+  flex-shrink: 0;
   background-color: #2ecc71;
   color: white;
   border: none;
@@ -388,7 +391,6 @@ th {
   margin: 0 2px;
 }
 
-/* AQUI ESTÁ A CORREÇÃO DO MENU COM TEXTO CORTADO */
 .status-dropdown {
   padding: 4px;
   border: 1px solid transparent;
@@ -540,6 +542,7 @@ th {
   gap: 8px;
 }
 .aba {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -610,6 +613,7 @@ th {
 .btn-nova-aba,
 .btn-excel,
 button[onclick='window.print()'] {
+  flex-shrink: 0;
   box-shadow: 0 4px 6px var(--shadow-color);
 }
 
@@ -634,7 +638,7 @@ button[onclick='window.print()'] {
   border-color: var(--border-input);
 }
 
-/* Níveis de Acesso (Role-Based UI) */
+/* Níveis de Acesso */
 body[data-role='guest'] .block-guest,
 body[data-role='guest'] .coluna-acao,
 body[data-role='guest'] .aba-acoes {
