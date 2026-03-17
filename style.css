@@ -364,6 +364,7 @@ th {
   box-shadow: var(--th-shadow);
   background-clip: padding-box;
 }
+
 .coluna-acao {
   min-width: 95px;
   text-align: center;
@@ -599,7 +600,7 @@ button[onclick='window.print()'] {
   box-shadow: 0 4px 6px var(--shadow-color);
 }
 
-/* CORREÇÃO DO ALERTA: SweetAlert sempre no topo */
+/* SweetAlert Z-Index Correction */
 .swal2-container {
   z-index: 10000 !important;
 }
@@ -620,6 +621,22 @@ button[onclick='window.print()'] {
   border-color: var(--border-input);
 }
 
+/* Níveis de Acesso (Role-Based UI) */
+body[data-role='guest'] .block-guest,
+body[data-role='guest'] .coluna-acao,
+body[data-role='guest'] .aba-acoes {
+  display: none !important;
+}
+body[data-role='guest'] .status-dropdown {
+  pointer-events: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* ==========================================================
+   MODO DE IMPRESSÃO CORRIGIDO
+   ========================================================== */
 @media print {
   .form-row,
   .btn-container,
@@ -647,6 +664,8 @@ button[onclick='window.print()'] {
   table {
     border-collapse: collapse !important;
     margin-top: 0;
+    width: 100% !important;
+    table-layout: auto !important;
   }
   th,
   td {
@@ -655,10 +674,13 @@ button[onclick='window.print()'] {
     font-size: 11px !important;
     color: black !important;
   }
+
+  /* ESCONDER A COLUNA DE CHECKBOX (Sem apagar a linha de grupo) */
   th:first-child,
-  td:first-child {
+  tr:not(.row-group-header) > td:first-child {
     display: none !important;
   }
+
   th {
     background-color: #f2f2f2 !important;
     position: static !important;
@@ -669,21 +691,22 @@ button[onclick='window.print()'] {
   td.coluna-acao {
     display: none !important;
   }
+
+  /* REMOVER A SETA DO DROPDOWN PARA NÃO CORTAR O TEXTO */
+  select {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    border: none !important;
+    background: transparent !important;
+    color: black !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-}
-
-/* Níveis de Acesso (Role-Based UI) */
-body[data-role='guest'] .block-guest,
-body[data-role='guest'] .coluna-acao,
-body[data-role='guest'] .aba-acoes {
-  display: none !important;
-}
-body[data-role='guest'] .status-dropdown {
-  pointer-events: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
 }

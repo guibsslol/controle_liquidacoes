@@ -218,7 +218,7 @@ function fazerLogin() {
       else localStorage.removeItem('savedUsername');
 
       fecharModalLogin();
-      document.getElementById('login-senha').value = ''; // Só limpa a senha por segurança
+      document.getElementById('login-senha').value = '';
       Swal.fire({
         icon: 'success',
         title: 'Login efetuado!',
@@ -794,17 +794,23 @@ async function moverProcessosLote() {
   if (currentRole === 'guest') return;
   const { value: formValues } = await Swal.fire({
     title: 'Transferência em Lote',
+    width: '500px',
     html: `
-        <div style="text-align: left; font-size: 14px;">
-            <select id="swal-move-tipo" class="swal2-select" style="width:100%;"><option value="empresa">Empresa igual a</option><option value="processo">Processo igual a</option><option value="empenho">Empenho igual a</option></select>
-            <input id="swal-move-valor" class="swal2-input" placeholder="Valor exato..." style="width:100%;">
-            <p style="margin-bottom:5px;">Mover para:</p>
-            <select id="swal-move-aba" class="swal2-select" style="width:100%;">${Object.keys(
+        <div style="text-align: left; font-size: 14px; overflow: hidden; padding: 5px;">
+            <select id="swal-move-tipo" class="swal2-select" style="width:100%; box-sizing:border-box; margin:0 0 10px 0;">
+                <option value="empresa">Empresa igual a</option>
+                <option value="processo">Processo igual a</option>
+                <option value="empenho">Empenho igual a</option>
+                <option value="elemento">Elemento igual a</option>
+            </select>
+            <input id="swal-move-valor" class="swal2-input" placeholder="Valor exato..." style="width:100%; box-sizing:border-box; margin:0 0 20px 0;">
+            <p style="margin-bottom:5px; font-weight:bold; color:var(--text-main);">Mover para:</p>
+            <select id="swal-move-aba" class="swal2-select" style="width:100%; box-sizing:border-box; margin:0 0 10px 0;">${Object.keys(
               dadosAbas,
             )
               .map((a) => `<option value="${a}">${a}</option>`)
               .join('')}</select>
-            <input id="swal-move-mes" class="swal2-input" placeholder="Mês Destino" style="width:100%;">
+            <input id="swal-move-mes" class="swal2-input" placeholder="Mês Destino" style="width:100%; box-sizing:border-box; margin:0;">
         </div>`,
     focusConfirm: false,
     showCancelButton: true,
