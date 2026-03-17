@@ -1,8 +1,27 @@
+// ==========================================
+// CONFIGURAÇÃO DO FIREBASE (NUVEM)
+// ==========================================
+const firebaseConfig = {
+  apiKey: 'AIzaSyAIQrfYY0QvtyN7qj61uLhq6Xyb4Eyn3ZA',
+  authDomain: 'controliqui-smebji.firebaseapp.com',
+  databaseURL: 'https://controliqui-smebji-default-rtdb.firebaseio.com',
+  projectId: 'controliqui-smebji',
+  storageBucket: 'controliqui-smebji.firebasestorage.app',
+  messagingSenderId: '659644181097',
+  appId: '1:659644181097:web:82b55c5eba921bc06e10f8',
+};
+
+// Inicializa a Nuvem
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+// ==========================================
+// VARIÁVEIS GLOBAIS DO SISTEMA
+// ==========================================
 let dadosAbas = { 'Assunto Geral': { Janeiro: [] } };
 let abaAtiva = 'Assunto Geral';
 let mesAtivo = 'Janeiro';
 
-let arquivoHandle = null;
 let abaArrastada = null;
 let subAbaArrastada = null;
 let linhaEmEdicao = null;
@@ -11,7 +30,6 @@ let ordemSort = 'asc';
 let IDsSelecionados = new Set();
 let dadosRelatorioGeral = [];
 
-// Instâncias dos Gráficos
 let chartStatus = null;
 let chartEmpresas = null;
 
@@ -27,7 +45,7 @@ function toggleTema() {
     document.body.setAttribute('data-theme', 'dark');
     localStorage.setItem('tema', 'dark');
   }
-  if (document.getElementById('modal-dashboard').style.display === 'flex') atualizarGraficos(); // Redesenha se estiver aberto
+  if (document.getElementById('modal-dashboard').style.display === 'flex') atualizarGraficos();
 }
 
 // ==========================================
@@ -82,149 +100,60 @@ document.addEventListener('keydown', function (e) {
 });
 
 // ==========================================
-// 1. SISTEMA DE ARQUIVO E STARTUP
+// 1. INICIALIZAÇÃO E COMUNICAÇÃO COM O FIREBASE
 // ==========================================
-window.onload = async () => {
-  // Carrega Tema Guardado
+window.onload = () => {
   if (localStorage.getItem('tema') === 'dark') document.body.setAttribute('data-theme', 'dark');
 
-  try {
-    if (typeof idbKeyval !== 'undefined') {
-      const savedHandle = await idbKeyval.get('meuArquivoProcessos');
-      if (savedHandle) {
-        arquivoHandle = savedHandle;
-        const btn = document.getElementById('btn-conectar');
-        btn.innerHTML = '<i class="fa-solid fa-unlock"></i> Retomar Sessão';
-        btn.style.backgroundColor = '#2980b9';
-        btn.onclick = retomarSessao;
-        Swal.fire({
-          icon: 'info',
-          title: 'Sessão Encontrada',
-          text: 'Clique em "Retomar Sessão" para continuar.',
-          toast: true,
-          position: 'top-end',
-          timer: 3000,
-        });
-      }
+  // Ouve as mudanças no Firebase em Tempo Real
+  const dbRef = database.ref('sistema');
+  dbRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+
+    if (data && data.abas) {
+      dadosAbas = data.abas;
+
+      let abaMemoria = localStorage.getItem('ultimaAba');
+      abaAtiva =
+        abaMemoria && dadosAbas[abaMemoria] ? abaMemoria : data.ativa || Object.keys(dadosAbas)[0];
+
+      let mesMemoria = localStorage.getItem('ultimoMes');
+      mesAtivo =
+        mesMemoria && dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesMemoria]
+          ? mesMemoria
+          : Object.keys(dadosAbas[abaAtiva])[0] || 'Geral';
+    } else {
+      // Primeira vez abrindo o sistema ou banco totalmente vazio
+      dadosAbas = { 'Assunto Geral': { Janeiro: [] } };
+      abaAtiva = 'Assunto Geral';
+      mesAtivo = 'Janeiro';
     }
-  } catch (e) {
-    console.log('Nenhuma sessão anterior encontrada.');
-  }
+
+    renderizarAbas();
+    renderizarSubAbas();
+    renderizarTabela();
+    atualizarAutocompletarAba();
+
+    const statusEl = document.getElementById('status-conexao');
+    statusEl.innerHTML = '<i class="fa-solid fa-cloud"></i> Online (Tempo Real)';
+    statusEl.style.color = '#27ae60';
+    statusEl.style.borderColor = '#27ae60';
+  });
 };
 
-async function retomarSessao() {
-  try {
-    const options = { mode: 'readwrite' };
-    if ((await arquivoHandle.requestPermission(options)) === 'granted') await lerDadosDoArquivo();
-    else Swal.fire('Acesso Negado', 'Tem de permitir a edição.', 'warning');
-  } catch (erro) {
-    Swal.fire('Erro', 'O ficheiro original foi movido ou excluído. Ligue novamente.', 'error');
-    desconectarArquivo();
-  }
-}
-
-async function conectarNovoArquivo() {
-  try {
-    [arquivoHandle] = await window.showOpenFilePicker({
-      types: [{ description: 'Base de Dados', accept: { 'application/json': ['.json'] } }],
-      multiple: false,
+function salvarArquivoAutomaticamente() {
+  // Envia os dados atualizados para a Nuvem
+  database
+    .ref('sistema')
+    .set({ abas: dadosAbas, ativa: abaAtiva })
+    .catch((error) => {
+      console.error('Erro ao salvar no Firebase:', error);
+      Swal.fire(
+        'Erro de Conexão',
+        'Não foi possível salvar na nuvem. Verifique sua internet.',
+        'error',
+      );
     });
-  } catch (erro) {
-    return;
-  }
-  try {
-    if (typeof idbKeyval !== 'undefined') await idbKeyval.set('meuArquivoProcessos', arquivoHandle);
-    await lerDadosDoArquivo();
-  } catch (erro) {
-    Swal.fire('Erro ao Ligar', 'Motivo: ' + erro.message, 'error');
-  }
-}
-
-async function lerDadosDoArquivo() {
-  const file = await arquivoHandle.getFile();
-  const contents = await file.text();
-  let importado = {};
-
-  try {
-    if (contents.trim() !== '') importado = JSON.parse(contents);
-  } catch (e) {}
-
-  if (importado && importado.abas) {
-    dadosAbas = importado.abas;
-
-    // Recupera a Memória de Navegação do LocalStorage
-    let abaMemoria = localStorage.getItem('ultimaAba');
-    abaAtiva =
-      abaMemoria && dadosAbas[abaMemoria]
-        ? abaMemoria
-        : importado.ativa || Object.keys(dadosAbas)[0];
-
-    let precisaSalvar = false;
-    Object.keys(dadosAbas).forEach((aba) => {
-      if (Array.isArray(dadosAbas[aba])) {
-        dadosAbas[aba] = { Geral: dadosAbas[aba] };
-        precisaSalvar = true;
-      }
-    });
-
-    let mesMemoria = localStorage.getItem('ultimoMes');
-    mesAtivo =
-      mesMemoria && dadosAbas[abaAtiva][mesMemoria]
-        ? mesMemoria
-        : Object.keys(dadosAbas[abaAtiva])[0] || 'Geral';
-
-    if (precisaSalvar) await salvarArquivoAutomaticamente();
-  } else {
-    await salvarArquivoAutomaticamente();
-  }
-
-  renderizarAbas();
-  renderizarSubAbas();
-  renderizarTabela();
-
-  document.getElementById('status-conexao').innerHTML =
-    '<i class="fa-solid fa-circle-check"></i> Ligado e a Guardar';
-  document.getElementById('status-conexao').style.color = '#27ae60';
-  document.getElementById('btn-conectar').style.display = 'none';
-  document.getElementById('btn-desconectar').style.display = 'block';
-  Swal.fire({
-    icon: 'success',
-    title: 'Base Ligada!',
-    toast: true,
-    position: 'top-end',
-    timer: 2000,
-  });
-}
-
-async function desconectarArquivo() {
-  if (typeof idbKeyval !== 'undefined') await idbKeyval.del('meuArquivoProcessos');
-  arquivoHandle = null;
-  dadosAbas = { 'Assunto Geral': { Janeiro: [] } };
-  document.getElementById('status-conexao').innerHTML =
-    '<i class="fa-solid fa-circle-xmark"></i> Desligado';
-  document.getElementById('status-conexao').style.color = '#e74c3c';
-  const btn = document.getElementById('btn-conectar');
-  btn.style.display = 'block';
-  btn.innerHTML = '<i class="fa-solid fa-link"></i> Ligar Base de Dados';
-  btn.style.backgroundColor = '#8e44ad';
-  btn.onclick = conectarNovoArquivo;
-  document.getElementById('btn-desconectar').style.display = 'none';
-  renderizarAbas();
-  renderizarSubAbas();
-  renderizarTabela();
-  Swal.fire('Desligado', 'A base fechou com segurança.', 'info');
-}
-
-async function salvarArquivoAutomaticamente() {
-  if (!arquivoHandle) return;
-  try {
-    const writable = await arquivoHandle.createWritable();
-    await writable.write(JSON.stringify({ abas: dadosAbas, ativa: abaAtiva }));
-    await writable.close();
-    atualizarAutocompletarAba();
-  } catch (erro) {
-    console.error('Erro ao guardar:', erro);
-  }
 }
 
 function fazerBackupSeguranca() {
@@ -240,11 +169,35 @@ function fazerBackupSeguranca() {
   Swal.fire({
     icon: 'success',
     title: 'Backup Feito!',
-    text: 'Guarde este ficheiro num local seguro.',
+    text: 'Guarde este arquivo num local seguro.',
     toast: true,
     position: 'top-end',
     timer: 3000,
   });
+}
+
+// NOVO: Restaurar os dados de um Backup Local direto para a Nuvem
+function restaurarBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const importado = JSON.parse(e.target.result);
+      if (importado && importado.abas) {
+        dadosAbas = importado.abas;
+        abaAtiva = importado.ativa || Object.keys(dadosAbas)[0];
+        salvarArquivoAutomaticamente();
+        Swal.fire('Restaurado!', 'Seu backup foi enviado para a nuvem com sucesso!', 'success');
+      } else {
+        Swal.fire('Erro', 'O arquivo JSON não possui a estrutura correta.', 'error');
+      }
+    } catch (err) {
+      Swal.fire('Erro', 'Arquivo JSON inválido ou corrompido.', 'error');
+    }
+    document.getElementById('input-restaurar-json').value = '';
+  };
+  reader.readAsText(file);
 }
 
 // ==========================================
@@ -774,6 +727,14 @@ function excluirSelecionados() {
       verificarBarraLote();
       salvarArquivoAutomaticamente();
       renderizarTabela();
+      Swal.fire({
+        icon: 'success',
+        title: 'Excluídos!',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 1500,
+      });
     }
   });
 }
@@ -964,21 +925,16 @@ function atualizarGraficos() {
   const isDark = document.body.getAttribute('data-theme') === 'dark';
   const textColor = isDark ? '#e0e0e0' : '#333';
 
-  // Preparar Dados - Status
   let aguardando = 0,
     pagoComOp = 0,
     pagoSemOp = 0;
-  // Preparar Dados - Empresas Top 5
   let empresas = {};
 
   registros.forEach((r) => {
     if (r.status === 'Aguardando Pagamento') aguardando++;
     else if (r.status === 'Pago' && !r.op) pagoSemOp++;
     else pagoComOp++;
-
-    if (r.empresa) {
-      empresas[r.empresa] = (empresas[r.empresa] || 0) + 1;
-    }
+    if (r.empresa) empresas[r.empresa] = (empresas[r.empresa] || 0) + 1;
   });
 
   const empresasArray = Object.entries(empresas)
@@ -989,7 +945,6 @@ function atualizarGraficos() {
   );
   const topEmpresasData = empresasArray.map((e) => e[1]);
 
-  // Gráfico de Pizza
   const ctxStatus = document.getElementById('graficoStatus').getContext('2d');
   if (chartStatus) chartStatus.destroy();
   chartStatus = new Chart(ctxStatus, {
@@ -1008,7 +963,6 @@ function atualizarGraficos() {
     options: { plugins: { legend: { labels: { color: textColor } } } },
   });
 
-  // Gráfico de Barras
   const ctxEmpresas = document.getElementById('graficoEmpresas').getContext('2d');
   if (chartEmpresas) chartEmpresas.destroy();
   chartEmpresas = new Chart(ctxEmpresas, {
@@ -1289,7 +1243,6 @@ function renderizarTabela() {
       (r) => r.status === 'Pago' && r.op === '',
     ).length;
 
-    // Atualiza a Barra de Progresso Verde
     const percent = total > 0 ? (pagasFull / total) * 100 : 0;
     document.getElementById('barra-progresso').style.width = `${percent}%`;
   }
@@ -1465,8 +1418,3 @@ function processarImportacaoExcel(event) {
   };
   reader.readAsArrayBuffer(file);
 }
-
-atualizarAutocompletarAba();
-renderizarAbas();
-renderizarSubAbas();
-renderizarTabela();
