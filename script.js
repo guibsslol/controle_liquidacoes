@@ -176,8 +176,34 @@ function registrarLog(acao, detalhes) {
     local: `${abaAtiva} > ${mesAtivo}`,
   });
 }
+
 function salvarArquivoAutomaticamente() {
   if (currentRole === 'guest') return;
+
+  // A MÁGICA: Evita que o Firebase apague as abas vazias injetando um Fantasma (Dummy)
+  for (let aba in dadosAbas) {
+    for (let mes in dadosAbas[aba]) {
+      let reais = dadosAbas[aba][mes] ? dadosAbas[aba][mes].filter((r) => !r.isDummy) : [];
+      if (reais.length === 0) {
+        dadosAbas[aba][mes] = [
+          {
+            id: 'dummy',
+            isDummy: true,
+            processo: '',
+            empresa: 'Aba Vazia',
+            elemento: '',
+            empenho: '',
+            liquidacao: '',
+            status: 'Aguardando Pagamento',
+            op: '',
+          },
+        ];
+      } else {
+        dadosAbas[aba][mes] = reais;
+      }
+    }
+  }
+
   database
     .ref('sistema')
     .set({ abas: dadosAbas, ativa: abaAtiva })
@@ -185,7 +211,7 @@ function salvarArquivoAutomaticamente() {
 }
 
 // ==========================================
-// FUNÇÕES DE LOGIN (USERNAME) E ADMIN
+// FUNÇÕES DE LOGIN E ADMIN
 // ==========================================
 function abrirModalLogin() {
   document.getElementById('modal-login').style.display = 'flex';
@@ -208,7 +234,6 @@ function fazerLogin() {
   const lembrar = document.getElementById('login-lembrar').checked;
 
   if (!user || !senha) return Swal.fire('Aviso', 'Preencha o usuário e a senha', 'warning');
-
   const emailFake = user + '@bji.local';
 
   auth
@@ -216,7 +241,6 @@ function fazerLogin() {
     .then(() => {
       if (lembrar) localStorage.setItem('savedUsername', user);
       else localStorage.removeItem('savedUsername');
-
       fecharModalLogin();
       document.getElementById('login-senha').value = '';
       Swal.fire({
@@ -592,6 +616,7 @@ async function duplicarMes() {
   if (formValues) {
     dadosAbas[abaAtiva][formValues.novoMes] = [];
     dadosAbas[abaAtiva][formValues.origem].forEach((reg, index) => {
+      if (reg.isDummy) return;
       dadosAbas[abaAtiva][formValues.novoMes].push({
         id: Date.now() + index,
         processo: formValues.importProc ? reg.processo : '',
@@ -772,11 +797,10 @@ async function agruparAbas() {
     selecionados.forEach((abaAntiga) => {
       Object.keys(dadosAbas[abaAntiga]).forEach((mesAntigo) => {
         let novoNomeMes = abaAntiga.replace('LIQ. ', '').replace('LIQ.', '').trim();
+        let registosReais = dadosAbas[abaAntiga][mesAntigo].filter((r) => !r.isDummy);
         if (dadosAbas[novoNome][novoNomeMes])
-          dadosAbas[novoNome][novoNomeMes] = dadosAbas[novoNome][novoNomeMes].concat(
-            dadosAbas[abaAntiga][mesAntigo],
-          );
-        else dadosAbas[novoNome][novoNomeMes] = dadosAbas[abaAntiga][mesAntigo];
+          dadosAbas[novoNome][novoNomeMes] = dadosAbas[novoNome][novoNomeMes].concat(registosReais);
+        else dadosAbas[novoNome][novoNomeMes] = registosReais;
       });
       if (abaAntiga !== novoNome) delete dadosAbas[abaAntiga];
     });
@@ -798,10 +822,7 @@ async function moverProcessosLote() {
     html: `
         <div style="text-align: left; font-size: 14px; overflow: hidden; padding: 5px;">
             <select id="swal-move-tipo" class="swal2-select" style="width:100%; box-sizing:border-box; margin:0 0 10px 0;">
-                <option value="empresa">Empresa igual a</option>
-                <option value="processo">Processo igual a</option>
-                <option value="empenho">Empenho igual a</option>
-                <option value="elemento">Elemento igual a</option>
+                <option value="empresa">Empresa igual a</option><option value="processo">Processo igual a</option><option value="empenho">Empenho igual a</option><option value="elemento">Elemento igual a</option>
             </select>
             <input id="swal-move-valor" class="swal2-input" placeholder="Valor exato..." style="width:100%; box-sizing:border-box; margin:0 0 20px 0;">
             <p style="margin-bottom:5px; font-weight:bold; color:var(--text-main);">Mover para:</p>
@@ -829,6 +850,7 @@ async function moverProcessosLote() {
     let processosMovidos = [];
     let processosRestantes = [];
     dadosAbas[abaAtiva][mesAtivo].forEach((reg) => {
+      if (reg.isDummy) return;
       if (reg[tipo] && reg[tipo].toString().toLowerCase() === valor.toLowerCase())
         processosMovidos.push(reg);
       else processosRestantes.push(reg);
@@ -970,6 +992,7 @@ function atualizarAutocompletarAba() {
   if (dadosAbas[abaAtiva]) {
     Object.values(dadosAbas[abaAtiva]).forEach((mes) => {
       mes.forEach((reg) => {
+        if (reg.isDummy) return;
         if (reg.processo) procs.add(reg.processo);
         if (reg.empresa) emps.add(reg.empresa);
         if (reg.elemento) elems.add(reg.elemento);
@@ -1020,6 +1043,7 @@ function adicionarRegistro() {
     for (let mes in dadosAbas[aba]) {
       let achou = dadosAbas[aba][mes].find(
         (r) =>
+          !r.isDummy &&
           r.processo === processo &&
           r.empresa === empresa &&
           r.elemento === elemento &&
@@ -1133,7 +1157,9 @@ function atualizarFiltrosDinâmicosDaTela(registrosDaTela) {
     select.value = valorAtual;
   };
   const registrosBrutos =
-    dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesAtivo] ? dadosAbas[abaAtiva][mesAtivo] : [];
+    dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesAtivo]
+      ? dadosAbas[abaAtiva][mesAtivo].filter((r) => !r.isDummy)
+      : [];
   preencherSelect(
     'filtro-processo',
     new Set(registrosBrutos.map((r) => r.processo).filter(Boolean)),
@@ -1150,7 +1176,9 @@ function renderizarTabela() {
   const tbody = document.getElementById('tabela-corpo');
   tbody.innerHTML = '';
   let registros =
-    dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesAtivo] ? [...dadosAbas[abaAtiva][mesAtivo]] : [];
+    dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesAtivo]
+      ? [...dadosAbas[abaAtiva][mesAtivo]].filter((r) => !r.isDummy)
+      : [];
 
   document.querySelectorAll('.th-sortable i').forEach((icon) => {
     icon.className = 'fa-solid fa-sort';
@@ -1380,7 +1408,9 @@ function fecharDashboard() {
 }
 function atualizarGraficos() {
   const registros =
-    dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesAtivo] ? dadosAbas[abaAtiva][mesAtivo] : [];
+    dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesAtivo]
+      ? dadosAbas[abaAtiva][mesAtivo].filter((r) => !r.isDummy)
+      : [];
   const isDark = document.body.getAttribute('data-theme') === 'dark';
   const textColor = isDark ? '#e0e0e0' : '#333';
   let aguardando = 0,
@@ -1447,7 +1477,7 @@ function abrirRelatorioPendencias() {
   for (let aba in dadosAbas) {
     for (let mes in dadosAbas[aba]) {
       dadosAbas[aba][mes].forEach((reg) => {
-        if (reg.status === 'Aguardando Pagamento' || !reg.op) {
+        if (!reg.isDummy && (reg.status === 'Aguardando Pagamento' || !reg.op)) {
           dadosRelatorioGeral.push({ ...reg, abaLocal: aba, mesLocal: mes });
         }
       });

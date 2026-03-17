@@ -307,12 +307,23 @@ button:hover {
   z-index: 11;
   box-shadow: 0 -4px 8px var(--shadow-color);
 }
+
+/* O BOTÃO QUE ESTAVA INVISÍVEL FOI CORRIGIDO AQUI */
 .btn-novo-mes {
-  padding: 5px 10px;
+  background-color: #2ecc71;
   color: white;
+  border: none;
+  padding: 5px 10px;
   border-radius: 4px;
   font-size: 11px;
   margin-bottom: 2px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px var(--shadow-color);
+  transition: all 0.2s ease;
+}
+.btn-novo-mes:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px var(--shadow-color);
 }
 
 .th-sortable {
@@ -492,7 +503,7 @@ th {
   flex: 1;
 }
 
-/* Abas Rodapé */
+/* Abas Flutuantes Rodapé */
 .abas-container {
   position: absolute;
   bottom: 0;
@@ -634,9 +645,7 @@ body[data-role='guest'] .status-dropdown {
   appearance: none;
 }
 
-/* ==========================================================
-   MODO DE IMPRESSÃO CORRIGIDO
-   ========================================================== */
+/* Impressão */
 @media print {
   .form-row,
   .btn-container,
@@ -674,13 +683,10 @@ body[data-role='guest'] .status-dropdown {
     font-size: 11px !important;
     color: black !important;
   }
-
-  /* ESCONDER A COLUNA DE CHECKBOX (Sem apagar a linha de grupo) */
   th:first-child,
   tr:not(.row-group-header) > td:first-child {
     display: none !important;
   }
-
   th {
     background-color: #f2f2f2 !important;
     position: static !important;
@@ -691,8 +697,6 @@ body[data-role='guest'] .status-dropdown {
   td.coluna-acao {
     display: none !important;
   }
-
-  /* REMOVER A SETA DO DROPDOWN PARA NÃO CORTAR O TEXTO */
   select {
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
@@ -704,7 +708,6 @@ body[data-role='guest'] .status-dropdown {
     padding: 0 !important;
     margin: 0 !important;
   }
-
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
