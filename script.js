@@ -1,6 +1,3 @@
-// ==========================================
-// CONFIGURAÇÃO DO FIREBASE (NUVEM)
-// ==========================================
 const firebaseConfig = {
   apiKey: 'AIzaSyAIQrfYY0QvtyN7qj61uLhq6Xyb4Eyn3ZA',
   authDomain: 'controliqui-smebji.firebaseapp.com',
@@ -11,21 +8,14 @@ const firebaseConfig = {
   appId: '1:659644181097:web:82b55c5eba921bc06e10f8',
 };
 
-// Inicializa a Nuvem
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 const auth = firebase.auth();
-
-// Instância Fantasma para criar utilizadores sem deslogar o Admin
 const adminAuthApp = firebase.initializeApp(firebaseConfig, 'AdminAuthApp');
 
-// ==========================================
-// VARIÁVEIS GLOBAIS DO SISTEMA
-// ==========================================
 let dadosAbas = { 'Assunto Geral': { Janeiro: [] } };
 let abaAtiva = 'Assunto Geral';
 let mesAtivo = 'Janeiro';
-
 let abaArrastada = null;
 let subAbaArrastada = null;
 let linhaEmEdicao = null;
@@ -33,18 +23,13 @@ let colunaSort = 'id';
 let ordemSort = 'asc';
 let IDsSelecionados = new Set();
 let dadosRelatorioGeral = [];
-
 let chartStatus = null;
 let chartEmpresas = null;
 
-// Variáveis de Autenticação
 let currentUser = null;
 let currentRole = 'guest';
 let currentUserName = '';
 
-// ==========================================
-// TEMA E MÁSCARAS
-// ==========================================
 function toggleTema() {
   const isDark = document.body.getAttribute('data-theme') === 'dark';
   if (isDark) {
@@ -81,7 +66,6 @@ function mascaraProcesso(e) {
   input.value = formatted;
 }
 
-// Atalhos de Teclado
 document.addEventListener('keydown', function (e) {
   if (linhaEmEdicao !== null) {
     if (e.key === 'Escape') {
@@ -104,21 +88,14 @@ document.addEventListener('keydown', function (e) {
       adicionarRegistro();
     }
   }
-
-  // ATALHO SECRETO: Ctrl + Shift + P
   if (e.ctrlKey && e.shiftKey && e.key === 'P') {
     e.preventDefault();
     abrirPainelAdmin();
   }
 });
 
-// ==========================================
-// 1. STARTUP, AUTH & LOGS
-// ==========================================
 window.onload = () => {
   if (localStorage.getItem('tema') === 'dark') document.body.setAttribute('data-theme', 'dark');
-
-  // Listener de Autenticação
   auth.onAuthStateChanged((user) => {
     if (user) {
       currentUser = user;
@@ -140,7 +117,6 @@ window.onload = () => {
     }
   });
 
-  // Listener da Base de Dados
   const dbRef = database.ref('sistema');
   dbRef.on('value', (snapshot) => {
     const data = snapshot.val();
@@ -171,8 +147,7 @@ window.onload = () => {
 };
 
 function aplicarInterfaceUsuario() {
-  document.body.setAttribute('data-role', currentRole); // O CSS faz a mágica de esconder
-
+  document.body.setAttribute('data-role', currentRole);
   if (currentRole !== 'guest') {
     document.getElementById('nome-usuario-logado').style.display = 'inline';
     document.getElementById('nome-usuario-logado').innerText =
@@ -184,7 +159,6 @@ function aplicarInterfaceUsuario() {
     document.getElementById('btn-login').style.display = 'inline-block';
     document.getElementById('btn-logout').style.display = 'none';
   }
-
   if (currentRole === 'admin_geral' || currentRole === 'admin_comum') {
     document.querySelectorAll('.admin-only').forEach((el) => (el.style.display = 'inline-block'));
   } else {
@@ -192,19 +166,16 @@ function aplicarInterfaceUsuario() {
   }
 }
 
-// Histórico de Auditoria (Logs)
 function registrarLog(acao, detalhes) {
   if (currentRole === 'guest') return;
-  const log = {
+  database.ref('logs').push({
     data: new Date().toISOString(),
     usuario: currentUserName,
     acao: acao,
     detalhes: detalhes,
     local: `${abaAtiva} > ${mesAtivo}`,
-  };
-  database.ref('logs').push(log);
+  });
 }
-
 function salvarArquivoAutomaticamente() {
   if (currentRole === 'guest') return;
   database
@@ -214,7 +185,7 @@ function salvarArquivoAutomaticamente() {
 }
 
 // ==========================================
-// FUNÇÕES DE LOGIN E PAINEL ADMIN
+// FUNÇÕES DE LOGIN (TRUQUE DO USERNAME) E ADMIN
 // ==========================================
 function abrirModalLogin() {
   document.getElementById('modal-login').style.display = 'flex';
@@ -224,14 +195,19 @@ function fecharModalLogin() {
 }
 
 function fazerLogin() {
-  const email = document.getElementById('login-email').value;
+  const user = document.getElementById('login-username').value.trim().toLowerCase();
   const senha = document.getElementById('login-senha').value;
-  if (!email || !senha) return Swal.fire('Aviso', 'Preencha o email e a senha', 'warning');
+  if (!user || !senha) return Swal.fire('Aviso', 'Preencha o usuário e a senha', 'warning');
+
+  // O Truque do E-mail Fantasma para o Firebase aceitar
+  const emailFake = user + '@bji.local';
 
   auth
-    .signInWithEmailAndPassword(email, senha)
+    .signInWithEmailAndPassword(emailFake, senha)
     .then(() => {
       fecharModalLogin();
+      document.getElementById('login-username').value = '';
+      document.getElementById('login-senha').value = '';
       Swal.fire({
         icon: 'success',
         title: 'Login efetuado!',
@@ -257,17 +233,15 @@ function fazerLogout() {
 }
 
 function abrirPainelAdmin() {
-  // A MÁGICA DA CORREÇÃO ACONTECE AQUI:
   database
     .ref('usuarios')
     .once('value')
     .then((snap) => {
-      // Permite abrir se for Admin, OU se a base de dados de utilizadores estiver vazia!
       if (!snap.exists() || currentRole === 'admin_geral' || currentRole === 'admin_comum') {
         document.getElementById('modal-admin').style.display = 'flex';
         mudarAbaAdmin('usuarios');
       } else {
-        Swal.fire('Acesso Negado', 'Apenas administradores podem aceder ao painel.', 'error');
+        Swal.fire('Acesso Negado', 'Apenas administradores podem aceder.', 'error');
       }
     });
 }
@@ -283,7 +257,6 @@ function mudarAbaAdmin(aba) {
     aba === 'usuarios' ? '#3498db' : 'transparent';
   document.getElementById('tab-logs-btn').style.borderBottomColor =
     aba === 'logs' ? '#3498db' : 'transparent';
-
   if (aba === 'usuarios') renderizarUsuarios();
   if (aba === 'logs') renderizarLogs();
 }
@@ -296,26 +269,21 @@ function renderizarUsuarios() {
       const tbody = document.getElementById('tabela-usuarios-corpo');
       tbody.innerHTML = '';
       if (!snap.exists()) return;
-
       const formatarCargo = (c) =>
         c === 'admin_geral'
           ? '<b style="color:#8e44ad">Admin Geral</b>'
           : c === 'admin_comum'
             ? '<b style="color:#2980b9">Admin Comum</b>'
             : 'Utilizador Comum';
-
       snap.forEach((child) => {
         const u = child.val();
         let tr = document.createElement('tr');
-
-        // Regra: Admin Comum não pode apagar Admin Geral
         let btnApagar = `<button onclick="apagarUsuario('${child.key}', '${u.cargo}')" style="padding:4px 8px; background:#e74c3c; color:white; border:none; border-radius:4px;"><i class="fa-solid fa-trash"></i></button>`;
         if (u.cargo === 'admin_geral' && currentRole !== 'admin_geral') btnApagar = '';
         if (currentUser && child.key === currentUser.uid)
           btnApagar =
             '<span style="color:#27ae60; font-size:11px; font-weight:bold;">(Você)</span>';
-
-        tr.innerHTML = `<td>${u.nome}</td><td>${u.email}</td><td>${formatarCargo(u.cargo)}</td><td style="text-align:center;">${btnApagar}</td>`;
+        tr.innerHTML = `<td>${u.nome}</td><td>${u.username}</td><td>${formatarCargo(u.cargo)}</td><td style="text-align:center;">${btnApagar}</td>`;
         tbody.appendChild(tr);
       });
     });
@@ -323,34 +291,28 @@ function renderizarUsuarios() {
 
 function criarNovoUsuario() {
   const nome = document.getElementById('novo-user-nome').value.trim();
-  const email = document.getElementById('novo-user-email').value.trim();
+  const username = document.getElementById('novo-user-username').value.trim().toLowerCase();
   const senha = document.getElementById('novo-user-senha').value;
   let cargo = document.getElementById('novo-user-cargo').value;
 
-  if (!nome || !email || senha.length < 6)
-    return Swal.fire(
-      'Aviso',
-      'Preencha tudo corretamente. A senha deve ter no mínimo 6 caracteres.',
-      'warning',
-    );
+  if (!nome || !username || senha.length < 6)
+    return Swal.fire('Aviso', 'Preencha tudo corretamente. Senha mínima 6 caracteres.', 'warning');
+  const emailFake = username + '@bji.local';
 
-  // Usa a instância fantasma para não deslogar o Admin atual
   adminAuthApp
     .auth()
-    .createUserWithEmailAndPassword(email, senha)
+    .createUserWithEmailAndPassword(emailFake, senha)
     .then((userCredential) => {
       const uid = userCredential.user.uid;
-
-      // Verifica se é o PRIMEIRO utilizador a ser criado
       database
         .ref('usuarios')
         .once('value')
         .then((snap) => {
           if (!snap.exists()) {
-            cargo = 'admin_geral'; // Força o primeiro a ser Admin Geral
+            cargo = 'admin_geral';
             Swal.fire(
               'Bem-vindo, Chefe!',
-              'Como você é o primeiro, a sua conta foi criada como Administrador Geral.',
+              'O primeiro utilizador é sempre Admin Geral.',
               'success',
             );
           } else {
@@ -359,14 +321,14 @@ function criarNovoUsuario() {
 
           database
             .ref('usuarios/' + uid)
-            .set({ nome: nome, email: email, cargo: cargo })
+            .set({ nome: nome, username: username, cargo: cargo })
             .then(() => {
               registrarLog('Criação de Utilizador', `Criou a conta de ${nome} (${cargo})`);
               document.getElementById('novo-user-nome').value = '';
-              document.getElementById('novo-user-email').value = '';
+              document.getElementById('novo-user-username').value = '';
               document.getElementById('novo-user-senha').value = '';
               renderizarUsuarios();
-              adminAuthApp.auth().signOut(); // Limpa a instância fantasma
+              adminAuthApp.auth().signOut();
             });
         });
     })
@@ -406,13 +368,11 @@ function renderizarLogs() {
       const tbody = document.getElementById('tabela-logs-corpo');
       tbody.innerHTML = '';
       if (!snap.exists()) return;
-
       let logs = [];
       snap.forEach((c) => {
         logs.push(c.val());
       });
-      logs.reverse(); // Mais recentes primeiro
-
+      logs.reverse();
       logs.forEach((log) => {
         if (
           filtro &&
@@ -421,7 +381,6 @@ function renderizarLogs() {
           !log.acao.toLowerCase().includes(filtro)
         )
           return;
-
         let dataFormatada = new Date(log.data).toLocaleString('pt-BR');
         let corAcao =
           log.acao.includes('Exclusão') || log.acao.includes('Apagou')
@@ -429,13 +388,7 @@ function renderizarLogs() {
             : log.acao.includes('Adição') || log.acao.includes('Novo')
               ? '#27ae60'
               : '#2980b9';
-
-        tbody.innerHTML += `<tr>
-                <td style="color:#7f8c8d;">${dataFormatada}</td>
-                <td style="font-weight:bold;">${log.usuario}</td>
-                <td><span style="background:${corAcao}; color:white; padding:2px 6px; border-radius:3px; font-size:10px;">${log.acao}</span></td>
-                <td>${log.detalhes} <br><span style="font-size:10px; color:#95a5a6;">Em: ${log.local}</span></td>
-            </tr>`;
+        tbody.innerHTML += `<tr><td style="color:#7f8c8d;">${dataFormatada}</td><td style="font-weight:bold;">${log.usuario}</td><td><span style="background:${corAcao}; color:white; padding:2px 6px; border-radius:3px; font-size:10px;">${log.acao}</span></td><td>${log.detalhes} <br><span style="font-size:10px; color:#95a5a6;">Em: ${log.local}</span></td></tr>`;
       });
     });
 }
@@ -462,7 +415,7 @@ function limparLogs() {
 }
 
 // ==========================================
-// 2. SISTEMA DE ABAS E SUB-ABAS (COM LOGS)
+// 2. SISTEMA DE ABAS E SUB-ABAS
 // ==========================================
 function renderizarAbas() {
   const listaAbas = document.getElementById('lista-abas');
@@ -668,7 +621,6 @@ async function editarNomeAba(nomeAtual) {
     renderizarAbas();
   }
 }
-
 function excluirAba(nomeAba) {
   if (currentRole === 'guest') return;
   if (Object.keys(dadosAbas).length > 1) {
@@ -693,7 +645,6 @@ function excluirAba(nomeAba) {
     Swal.fire('Atenção', 'Mínimo de 1 aba.', 'info');
   }
 }
-
 async function criarNovaAba() {
   if (currentRole === 'guest') return;
   const { value: nome } = await Swal.fire({
@@ -712,7 +663,6 @@ async function criarNovaAba() {
     renderizarTabela();
   }
 }
-
 async function editarNomeMes(nomeAtual) {
   if (currentRole === 'guest') return;
   const { value: novoNome } = await Swal.fire({
@@ -737,7 +687,6 @@ async function editarNomeMes(nomeAtual) {
     renderizarSubAbas();
   }
 }
-
 function excluirMes(nomeMes) {
   if (currentRole === 'guest') return;
   if (Object.keys(dadosAbas[abaAtiva]).length > 1) {
@@ -760,7 +709,6 @@ function excluirMes(nomeMes) {
     Swal.fire('Atenção', 'Mínimo de 1 mês.', 'info');
   }
 }
-
 async function criarNovoMes() {
   if (currentRole === 'guest') return;
   const { value: nome } = await Swal.fire({
@@ -995,7 +943,7 @@ async function moverSelecionados() {
 }
 
 // ==========================================
-// AUTOCOMPLETAR
+// AUTOCOMPLETAR E ORDENAÇÃO
 // ==========================================
 function atualizarAutocompletarAba() {
   let procs = new Set(),
@@ -1279,6 +1227,7 @@ function criarElementoTR(reg) {
   const isChecked = IDsSelecionados.has(reg.id) ? 'checked' : '';
 
   if (linhaEmEdicao === reg.id) {
+    // ATUALIZADO: td.coluna-acao tem style="white-space: nowrap;" e está correto
     tr.innerHTML = `
         <td class="coluna-acao"></td>
         <td><input type="text" id="edit-processo-${reg.id}" class="input-inline" value="${reg.processo}" oninput="mascaraProcesso(event)"></td>
@@ -1288,7 +1237,7 @@ function criarElementoTR(reg) {
         <td><input type="text" id="edit-liquidacao-${reg.id}" class="input-inline" value="${reg.liquidacao}"></td>
         <td><select id="edit-status-${reg.id}" class="input-inline" style="padding: 5px;"><option value="Aguardando Pagamento" ${reg.status === 'Aguardando Pagamento' ? 'selected' : ''}>Aguardando Pagamento</option><option value="Pago" ${reg.status === 'Pago' ? 'selected' : ''}>Pago</option></select></td>
         <td><input type="text" id="edit-op-${reg.id}" class="input-inline" value="${reg.op}"></td>
-        <td class="coluna-acao"><button class="btn-edit" onclick="salvarEdicaoInline(${reg.id})"><i class="fa-solid fa-check"></i></button><button class="btn-delete" onclick="cancelarEdicaoInline()"><i class="fa-solid fa-xmark"></i></button></td>
+        <td class="coluna-acao" style="white-space: nowrap;"><button class="btn-edit" onclick="salvarEdicaoInline(${reg.id})"><i class="fa-solid fa-check"></i></button><button class="btn-delete" onclick="cancelarEdicaoInline()"><i class="fa-solid fa-xmark"></i></button></td>
       `;
     tr.style.backgroundColor = 'var(--bg-header)';
     tr.style.boxShadow = 'inset 0 0 5px rgba(52, 152, 219, 0.3)';
@@ -1310,7 +1259,7 @@ function criarElementoTR(reg) {
         <td class="${classEmpenhoLiq}" ondblclick="ativarEdicaoEFocus(${reg.id}, 'liquidacao')" style="cursor:pointer;" title="Duplo clique para editar">${reg.liquidacao}</td>
         <td class="${classOP}"><select class="status-dropdown" onchange="atualizarStatusDireto(${reg.id}, this.value)"><option value="Aguardando Pagamento" ${reg.status === 'Aguardando Pagamento' ? 'selected' : ''}>Aguardando Pagamento</option><option value="Pago" ${reg.status === 'Pago' ? 'selected' : ''}>Pago</option></select></td>
         <td class="${classOP}" ondblclick="ativarEdicaoEFocus(${reg.id}, 'op')" style="cursor:pointer;" title="Duplo clique para editar">${reg.op}</td>
-        <td class="coluna-acao"><button class="btn-edit" onclick="ativarEdicaoInline(${reg.id})"><i class="fa-solid fa-pen"></i></button><button class="btn-delete" onclick="apagarLinha(${reg.id})"><i class="fa-solid fa-trash"></i></button></td>
+        <td class="coluna-acao" style="white-space: nowrap;"><button class="btn-edit" onclick="ativarEdicaoInline(${reg.id})"><i class="fa-solid fa-pen"></i></button><button class="btn-delete" onclick="apagarLinha(${reg.id})"><i class="fa-solid fa-trash"></i></button></td>
       `;
     if (isChecked) tr.style.backgroundColor = 'var(--bg-lote)';
   }
@@ -1392,7 +1341,7 @@ function processarImportacaoExcel(event) {
         });
         abaAtiva = workbook.SheetNames[0];
         mesAtivo = 'Geral';
-        registrarLog('Importação', `Importou ${totalImportados} registos do Excel`);
+        registrarLog('Importação', `Importou ${totalImportados} registos de Excel`);
         salvarArquivoAutomaticamente();
         renderizarAbas();
         renderizarSubAbas();
@@ -1535,7 +1484,7 @@ function filtrarRelatorio() {
       reg.status === 'Aguardando Pagamento'
         ? 'color:#c0392b; font-weight:bold;'
         : 'color:#27ae60; font-weight:bold;';
-    tbody.innerHTML += ` <tr> <td>${reg.processo}</td><td>${reg.empresa}</td><td>${reg.elemento}</td><td>${reg.empenho}</td><td>${reg.liquidacao}</td> <td style="${corStatus}">${reg.status}</td><td>${opVisivel}</td> <td style="font-weight:bold; color:var(--text-muted);">${reg.abaLocal} <i class="fa-solid fa-angle-right"></i> ${reg.mesLocal}</td> <td class="coluna-acao"><button onclick="irParaProcesso('${reg.abaLocal}', '${reg.mesLocal}', ${reg.id})" style="padding:5px 10px; background:#3498db; color:white; border:none; border-radius:4px; cursor:pointer;" title="Ir para o processo"><i class="fa-solid fa-arrow-right"></i></button></td> </tr>`;
+    tbody.innerHTML += ` <tr> <td>${reg.processo}</td><td>${reg.empresa}</td><td>${reg.elemento}</td><td>${reg.empenho}</td><td>${reg.liquidacao}</td> <td style="${corStatus}">${reg.status}</td><td>${opVisivel}</td> <td style="font-weight:bold; color:var(--text-muted);">${reg.abaLocal} <i class="fa-solid fa-angle-right"></i> ${reg.mesLocal}</td> <td class="coluna-acao" style="white-space: nowrap;"><button onclick="irParaProcesso('${reg.abaLocal}', '${reg.mesLocal}', ${reg.id})" style="padding:5px 10px; background:#3498db; color:white; border:none; border-radius:4px; cursor:pointer;" title="Ir para o processo"><i class="fa-solid fa-arrow-right"></i></button></td> </tr>`;
   });
 }
 window.irParaProcesso = function (aba, mes, id) {

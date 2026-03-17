@@ -1,11 +1,10 @@
 <!doctype html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 
 <head>
   <meta charset="UTF-8" />
-  <title>Controlo de Processos e Liquidações</title>
+  <title>Controle de Processos e Liquidações</title>
   <link rel="stylesheet" href="style.css" />
-
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -26,7 +25,6 @@
           <button onclick="toggleTema()" id="btn-tema" title="Alternar Tema"
             style="background:none; border:none; box-shadow:none; font-size: 18px; color: var(--text-main);"><i
               class="fa-solid fa-moon"></i></button>
-
           <span id="status-conexao"
             style="font-size: 13px; color: #f39c12; font-weight: bold; background: var(--bg-header); padding: 5px 10px; border-radius: 20px; border: 1px solid var(--border-color);">
             <i class="fa-solid fa-spinner fa-spin"></i> Conectando...
@@ -256,8 +254,9 @@
       </div>
       <div class="modal-body" style="padding-bottom: 25px;">
         <div class="input-group" style="margin-bottom: 15px;">
-          <label>E-mail</label>
-          <input type="email" id="login-email" placeholder="seu@email.com" class="input-inline">
+          <label>Nome de Usuário</label>
+          <input type="text" id="login-username" placeholder="Digite o seu usuário" class="input-inline"
+            style="text-transform: lowercase;">
         </div>
         <div class="input-group" style="margin-bottom: 20px;">
           <label>Senha</label>
@@ -291,10 +290,10 @@
             <h4 style="margin: 0 0 10px 0; color: var(--text-main);"><i class="fa-solid fa-user-plus"></i> Registar Novo
               Utilizador</h4>
             <div class="form-row" style="margin-bottom: 0;">
-              <div class="input-group"><label>Nome</label><input type="text" id="novo-user-nome"
-                  placeholder="Nome Completo"></div>
-              <div class="input-group"><label>E-mail</label><input type="email" id="novo-user-email"
-                  placeholder="email@email.com"></div>
+              <div class="input-group"><label>Nome Completo</label><input type="text" id="novo-user-nome"
+                  placeholder="Ex: João Silva"></div>
+              <div class="input-group"><label>Usuário (Login)</label><input type="text" id="novo-user-username"
+                  placeholder="Ex: joao123" style="text-transform: lowercase;"></div>
               <div class="input-group"><label>Senha Inicial</label><input type="password" id="novo-user-senha"
                   placeholder="Mínimo 6 chars"></div>
               <div class="input-group">
@@ -312,7 +311,7 @@
             <thead>
               <tr>
                 <th>Nome</th>
-                <th>E-mail</th>
+                <th>Usuário</th>
                 <th>Cargo</th>
                 <th style="text-align: center;">Ações</th>
               </tr>
