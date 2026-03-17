@@ -13,7 +13,6 @@ const database = firebase.database();
 const auth = firebase.auth();
 const adminAuthApp = firebase.initializeApp(firebaseConfig, 'AdminAuthApp');
 
-// Variáveis Principais (Agora com Arrays de Ordem)
 let dadosAbas = { 'Assunto Geral': { Janeiro: [] } };
 let ordemAbas = [];
 let ordemSubAbas = {};
@@ -129,7 +128,6 @@ window.onload = () => {
       dadosAbas = data.abas;
       let chavesBanco = Object.keys(dadosAbas);
 
-      // Sincroniza a Ordem Customizada das Abas
       if (data.ordemAbas) {
         ordemAbas = data.ordemAbas.filter((a) => chavesBanco.includes(a));
         chavesBanco.forEach((a) => {
@@ -139,7 +137,6 @@ window.onload = () => {
         ordemAbas = chavesBanco;
       }
 
-      // Sincroniza a Ordem Customizada das Sub-Abas
       if (data.ordemSubAbas) {
         ordemSubAbas = data.ordemSubAbas;
       } else {
@@ -203,6 +200,14 @@ function aplicarInterfaceUsuario() {
   } else {
     document.querySelectorAll('.admin-only').forEach((el) => (el.style.display = 'none'));
   }
+
+  // AQUI ESTÁ A CORREÇÃO DAS ABAS QUE NÃO ARRASTAVAM:
+  // Obriga o ecrã a redesenhar as abas assim que a pessoa loga!
+  if (ordemAbas.length > 0) {
+    renderizarAbas();
+    renderizarSubAbas();
+    renderizarTabela();
+  }
 }
 
 function registrarLog(acao, detalhes) {
@@ -240,8 +245,6 @@ function salvarArquivoAutomaticamente() {
       }
     }
   }
-
-  // AGORA SALVAMOS A ORDEM EXACTA NAS NUVENS
   database
     .ref('sistema')
     .set({ abas: dadosAbas, ativa: abaAtiva, ordemAbas: ordemAbas, ordemSubAbas: ordemSubAbas })
@@ -487,15 +490,13 @@ function limparLogs() {
 }
 
 // ==========================================
-// 2. SISTEMA DE ABAS E SUB-ABAS (AGORA USA ORDEM PERSONALIZADA)
+// 2. SISTEMA DE ABAS E SUB-ABAS
 // ==========================================
 function renderizarAbas() {
   const listaAbas = document.getElementById('lista-abas');
   listaAbas.innerHTML = '';
-
-  // Utiliza a variável global ordemAbas no lugar das chaves do Firebase
   ordemAbas.forEach((nomeAba) => {
-    if (!dadosAbas[nomeAba]) return; // Proteção
+    if (!dadosAbas[nomeAba]) return;
     const divAba = document.createElement('div');
     divAba.className = `aba ${nomeAba === abaAtiva ? 'ativa' : ''}`;
     divAba.setAttribute('draggable', currentRole !== 'guest');
@@ -558,7 +559,6 @@ function renderizarSubAbas() {
   listaMeses.innerHTML = '';
   if (!dadosAbas[abaAtiva] || !ordemSubAbas[abaAtiva]) return;
 
-  // Utiliza a variável ordemSubAbas
   ordemSubAbas[abaAtiva].forEach((nomeMes) => {
     if (!dadosAbas[abaAtiva][nomeMes]) return;
     const divMes = document.createElement('div');
@@ -1613,7 +1613,6 @@ window.irParaProcesso = function (aba, mes, id) {
   }, 300);
 };
 
-// Funcao de Restaurar Backup
 function restaurarBackup(event) {
   const file = event.target.files[0];
   if (!file) return;
