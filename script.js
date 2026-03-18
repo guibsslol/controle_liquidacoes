@@ -22,8 +22,11 @@ let mesAtivo = 'Janeiro';
 let abaArrastada = null;
 let subAbaArrastada = null;
 let linhaEmEdicao = null;
+
+// ORDENAÇÃO PADRÃO: id desc (Mais recentes primeiro)
 let colunaSort = 'id';
-let ordemSort = 'asc';
+let ordemSort = 'desc';
+
 let IDsSelecionados = new Set();
 let dadosRelatorioGeral = [];
 let chartStatus = null;
@@ -32,6 +35,15 @@ let chartEmpresas = null;
 let currentUser = null;
 let currentRole = 'guest';
 let currentUserName = '';
+
+const normalizar = (txt) =>
+  txt
+    ? txt
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .trim()
+    : '';
 
 function toggleTema() {
   const isDark = document.body.getAttribute('data-theme') === 'dark';
@@ -99,7 +111,6 @@ document.addEventListener('keydown', function (e) {
 
 window.onload = () => {
   if (localStorage.getItem('tema') === 'dark') document.body.setAttribute('data-theme', 'dark');
-
   auth.onAuthStateChanged((user) => {
     if (user) {
       currentUser = user;
@@ -127,7 +138,6 @@ window.onload = () => {
     if (data && data.abas) {
       dadosAbas = data.abas;
       let chavesBanco = Object.keys(dadosAbas);
-
       if (data.ordemAbas) {
         ordemAbas = data.ordemAbas.filter((a) => chavesBanco.includes(a));
         chavesBanco.forEach((a) => {
@@ -157,7 +167,6 @@ window.onload = () => {
 
       let abaMemoria = localStorage.getItem('ultimaAba');
       abaAtiva = abaMemoria && dadosAbas[abaMemoria] ? abaMemoria : data.ativa || ordemAbas[0];
-
       let mesMemoria = localStorage.getItem('ultimoMes');
       mesAtivo =
         mesMemoria && dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesMemoria]
@@ -170,7 +179,6 @@ window.onload = () => {
       abaAtiva = 'Assunto Geral';
       mesAtivo = 'Janeiro';
     }
-
     renderizarAbas();
     renderizarSubAbas();
     renderizarTabela();
@@ -201,8 +209,6 @@ function aplicarInterfaceUsuario() {
     document.querySelectorAll('.admin-only').forEach((el) => (el.style.display = 'none'));
   }
 
-  // AQUI ESTÁ A CORREÇÃO DAS ABAS QUE NÃO ARRASTAVAM:
-  // Obriga o ecrã a redesenhar as abas assim que a pessoa loga!
   if (ordemAbas.length > 0) {
     renderizarAbas();
     renderizarSubAbas();
@@ -329,10 +335,15 @@ function mudarAbaAdmin(aba) {
   document.getElementById('admin-tab-usuarios').style.display =
     aba === 'usuarios' ? 'block' : 'none';
   document.getElementById('admin-tab-logs').style.display = aba === 'logs' ? 'block' : 'none';
+  document.getElementById('admin-tab-sistema').style.display = aba === 'sistema' ? 'block' : 'none';
+
   document.getElementById('tab-usuarios-btn').style.borderBottomColor =
     aba === 'usuarios' ? '#3498db' : 'transparent';
   document.getElementById('tab-logs-btn').style.borderBottomColor =
     aba === 'logs' ? '#3498db' : 'transparent';
+  document.getElementById('tab-sistema-btn').style.borderBottomColor =
+    aba === 'sistema' ? '#3498db' : 'transparent';
+
   if (aba === 'usuarios') renderizarUsuarios();
   if (aba === 'logs') renderizarLogs();
 }
@@ -394,6 +405,7 @@ function criarNovoUsuario() {
           } else {
             Swal.fire('Sucesso!', 'Utilizador criado.', 'success');
           }
+
           database
             .ref('usuarios/' + uid)
             .set({ nome: nome, username: username, cargo: cargo })
@@ -433,7 +445,7 @@ function apagarUsuario(uid, cargoAlvo) {
 }
 
 function renderizarLogs() {
-  const filtro = document.getElementById('filtro-log-texto').value.toLowerCase();
+  const filtro = normalizar(document.getElementById('filtro-log-texto').value);
   database
     .ref('logs')
     .orderByChild('data')
@@ -451,9 +463,9 @@ function renderizarLogs() {
       logs.forEach((log) => {
         if (
           filtro &&
-          !log.usuario.toLowerCase().includes(filtro) &&
-          !log.detalhes.toLowerCase().includes(filtro) &&
-          !log.acao.toLowerCase().includes(filtro)
+          !normalizar(log.usuario).includes(filtro) &&
+          !normalizar(log.detalhes).includes(filtro) &&
+          !normalizar(log.acao).includes(filtro)
         )
           return;
         let dataFormatada = new Date(log.data).toLocaleString('pt-BR');
@@ -902,7 +914,7 @@ async function moverProcessosLote() {
     let processosRestantes = [];
     dadosAbas[abaAtiva][mesAtivo].forEach((reg) => {
       if (reg.isDummy) return;
-      if (reg[tipo] && reg[tipo].toString().toLowerCase() === valor.toLowerCase())
+      if (reg[tipo] && normalizar(reg[tipo].toString()) === normalizar(valor))
         processosMovidos.push(reg);
       else processosRestantes.push(reg);
     });
@@ -1038,8 +1050,72 @@ async function moverSelecionados() {
 }
 
 // ==========================================
-// AUTOCOMPLETAR E ORDENAÇÃO
+// BUSCA GLOBAL E AUTOCOMPLETAR
 // ==========================================
+function abrirBuscaGlobal() {
+  document.getElementById('modal-busca').style.display = 'flex';
+  document.getElementById('tabela-busca-corpo').innerHTML = '';
+}
+function fecharBusca() {
+  document.getElementById('modal-busca').style.display = 'none';
+}
+function realizarBusca() {
+  const bProc = normalizar(document.getElementById('busca-processo').value);
+  const bEmp = normalizar(document.getElementById('busca-empresa').value);
+  const bElem = normalizar(document.getElementById('busca-elemento').value);
+  const bEmpenho = normalizar(document.getElementById('busca-empenho').value);
+  const bLiq = normalizar(document.getElementById('busca-liquidacao').value);
+  const bStatus = normalizar(document.getElementById('busca-status').value);
+  const bOp = normalizar(document.getElementById('busca-op').value);
+
+  if (!bProc && !bEmp && !bElem && !bEmpenho && !bLiq && !bStatus && !bOp) {
+    Swal.fire('Aviso', 'Preencha pelo menos um campo para buscar.', 'warning');
+    return;
+  }
+
+  let resultados = [];
+  for (let aba in dadosAbas) {
+    for (let mes in dadosAbas[aba]) {
+      dadosAbas[aba][mes].forEach((reg) => {
+        if (reg.isDummy) return;
+        let match = true;
+        if (bProc && !normalizar(reg.processo).includes(bProc)) match = false;
+        if (bEmp && !normalizar(reg.empresa).includes(bEmp)) match = false;
+        if (bElem && !normalizar(reg.elemento).includes(bElem)) match = false;
+        if (bEmpenho && normalizar(reg.empenho) !== bEmpenho) match = false;
+        if (bLiq && normalizar(reg.liquidacao) !== bLiq) match = false;
+        if (bStatus && normalizar(reg.status) !== bStatus) match = false;
+        if (bOp && normalizar(reg.op) !== bOp) match = false;
+        if (match) resultados.push({ ...reg, abaLocal: aba, mesLocal: mes });
+      });
+    }
+  }
+
+  const tbody = document.getElementById('tabela-busca-corpo');
+  tbody.innerHTML = '';
+  if (resultados.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="9" style="text-align:center; padding:20px; font-weight:bold; color:var(--text-muted);">Nenhum processo encontrado.</td></tr>';
+    return;
+  }
+
+  resultados.forEach((reg) => {
+    let opVisivel = reg.op
+      ? reg.op
+      : '<span style="background:#fff3cd; color:#d35400; padding:2px 6px; border-radius:3px; font-weight:bold;">S/ OP</span>';
+    let corStatus =
+      reg.status === 'Aguardando Pagamento'
+        ? 'color:#c0392b; font-weight:bold;'
+        : 'color:#27ae60; font-weight:bold;';
+    tbody.innerHTML += `<tr>
+            <td>${reg.processo}</td><td>${reg.empresa}</td><td>${reg.elemento}</td><td>${reg.empenho}</td><td>${reg.liquidacao}</td>
+            <td style="${corStatus}">${reg.status}</td><td>${opVisivel}</td>
+            <td style="font-weight:bold; color:var(--text-muted);">${reg.abaLocal} <i class="fa-solid fa-angle-right"></i> ${reg.mesLocal}</td>
+            <td class="coluna-acao" style="white-space: nowrap;"><button onclick="irParaProcesso('${reg.abaLocal}', '${reg.mesLocal}', ${reg.id})" style="padding:5px 10px; background:#3498db; color:white; border:none; border-radius:4px; cursor:pointer;" title="Ir para o processo"><i class="fa-solid fa-arrow-right"></i></button></td>
+        </tr>`;
+  });
+}
+
 function atualizarAutocompletarAba() {
   let procs = new Set(),
     emps = new Set(),
@@ -1071,9 +1147,15 @@ function atualizarAutocompletarAba() {
   preencherListas('lista-empenhos', emps2);
 }
 
+// MUDANÇA: Função de ordenação de colunas reescrita com 3 estados
 function ordenarTabela(coluna) {
-  if (colunaSort === coluna) ordemSort = ordemSort === 'asc' ? 'desc' : 'asc';
-  else {
+  if (colunaSort === coluna) {
+    if (ordemSort === 'asc') ordemSort = 'desc';
+    else {
+      colunaSort = 'id';
+      ordemSort = 'desc';
+    } // Volta ao Padrão
+  } else {
     colunaSort = coluna;
     ordemSort = 'asc';
   }
@@ -1086,8 +1168,8 @@ function ordenarTabela(coluna) {
 function adicionarRegistro() {
   if (currentRole === 'guest') return;
   const processo = document.getElementById('processo').value.trim();
-  const empresa = document.getElementById('empresa').value.trim();
-  const elemento = document.getElementById('elemento').value.trim();
+  const empresa = document.getElementById('empresa').value.trim().toUpperCase();
+  const elemento = document.getElementById('elemento').value.trim().toUpperCase();
   const empenho = document.getElementById('empenho').value.trim();
   const liquidacao = document.getElementById('liquidacao').value.trim();
   const status = document.getElementById('status_pagamento').value;
@@ -1100,11 +1182,11 @@ function adicionarRegistro() {
       let achou = dadosAbas[aba][mes].find(
         (r) =>
           !r.isDummy &&
-          r.processo === processo &&
-          r.empresa === empresa &&
-          r.elemento === elemento &&
-          r.empenho === empenho &&
-          r.liquidacao === liquidacao,
+          normalizar(r.processo) === normalizar(processo) &&
+          normalizar(r.empresa) === normalizar(empresa) &&
+          normalizar(r.elemento) === normalizar(elemento) &&
+          normalizar(r.empenho) === normalizar(empenho) &&
+          normalizar(r.liquidacao) === normalizar(liquidacao),
       );
       if (achou) {
         duplicado = { aba, mes };
@@ -1128,11 +1210,20 @@ function adicionarRegistro() {
   salvarArquivoAutomaticamente();
   renderizarTabela();
   limparInputs();
+  Swal.fire({
+    icon: 'success',
+    title: 'Processo lançado!',
+    toast: true,
+    position: 'bottom-end',
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+  });
 }
 
 function limparInputs() {
   document.querySelectorAll('.form-row input').forEach((i) => {
-    if (!i.id.includes('filtro')) i.value = '';
+    if (!i.id.includes('filtro') && !i.id.includes('busca')) i.value = '';
   });
   document.getElementById('status_pagamento').value = 'Aguardando Pagamento';
   document.getElementById('processo').focus();
@@ -1177,10 +1268,12 @@ function salvarEdicaoInline(id) {
       .value.trim();
     dadosAbas[abaAtiva][mesAtivo][index].empresa = document
       .getElementById(`edit-empresa-${id}`)
-      .value.trim();
+      .value.trim()
+      .toUpperCase();
     dadosAbas[abaAtiva][mesAtivo][index].elemento = document
       .getElementById(`edit-elemento-${id}`)
-      .value.trim();
+      .value.trim()
+      .toUpperCase();
     dadosAbas[abaAtiva][mesAtivo][index].empenho = document
       .getElementById(`edit-empenho-${id}`)
       .value.trim();
@@ -1202,14 +1295,19 @@ function salvarEdicaoInline(id) {
 }
 
 function atualizarFiltrosDinâmicosDaTela(registrosDaTela) {
-  const preencherSelect = (idSelect, valores) => {
+  const preencherSelect = (idSelect, valoresRaw) => {
     const select = document.getElementById(idSelect);
     const valorAtual = select.value;
     select.innerHTML = `<option value="">Todos</option>`;
-    Array.from(valores)
+    const mapa = new Map();
+    valoresRaw.forEach((v) => {
+      if (v) mapa.set(normalizar(v), v.toUpperCase());
+    });
+    Array.from(mapa.keys())
       .sort()
-      .forEach((v) => (select.innerHTML += `<option value="${v}">${v}</option>`));
-    select.value = valorAtual;
+      .forEach((normKey) => {
+        select.innerHTML += `<option value="${normKey}" ${normKey === valorAtual ? 'selected' : ''}>${mapa.get(normKey)}</option>`;
+      });
   };
   const registrosBrutos =
     dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesAtivo]
@@ -1217,14 +1315,20 @@ function atualizarFiltrosDinâmicosDaTela(registrosDaTela) {
       : [];
   preencherSelect(
     'filtro-processo',
-    new Set(registrosBrutos.map((r) => r.processo).filter(Boolean)),
+    registrosBrutos.map((r) => r.processo),
   );
-  preencherSelect('filtro-empresa', new Set(registrosBrutos.map((r) => r.empresa).filter(Boolean)));
+  preencherSelect(
+    'filtro-empresa',
+    registrosBrutos.map((r) => r.empresa),
+  );
   preencherSelect(
     'filtro-elemento',
-    new Set(registrosBrutos.map((r) => r.elemento).filter(Boolean)),
+    registrosBrutos.map((r) => r.elemento),
   );
-  preencherSelect('filtro-empenho', new Set(registrosBrutos.map((r) => r.empenho).filter(Boolean)));
+  preencherSelect(
+    'filtro-empenho',
+    registrosBrutos.map((r) => r.empenho),
+  );
 }
 
 function renderizarTabela() {
@@ -1239,15 +1343,24 @@ function renderizarTabela() {
     icon.className = 'fa-solid fa-sort';
     icon.parentElement.classList.remove('sorted-asc', 'sorted-desc');
   });
-  const currentIcon = document.getElementById(`sort-icon-${colunaSort}`);
-  if (currentIcon) {
-    currentIcon.className = ordemSort === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down';
-    currentIcon.parentElement.classList.add(`sorted-${ordemSort}`);
+
+  if (colunaSort !== 'id') {
+    const currentIcon = document.getElementById(`sort-icon-${colunaSort}`);
+    if (currentIcon) {
+      currentIcon.className = ordemSort === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down';
+      currentIcon.parentElement.classList.add(`sorted-${ordemSort}`);
+    }
   }
 
+  // MUDANÇA: Ordenação genérica para Texto ou Números (ID)
   registros.sort((a, b) => {
-    let valA = (a[colunaSort] || '').toString().toLowerCase();
-    let valB = (b[colunaSort] || '').toString().toLowerCase();
+    let valA = a[colunaSort];
+    let valB = b[colunaSort];
+    if (valA === undefined || valA === null) valA = '';
+    if (valB === undefined || valB === null) valB = '';
+    if (typeof valA === 'string') valA = valA.toString().toLowerCase();
+    if (typeof valB === 'string') valB = valB.toString().toLowerCase();
+
     if (valA < valB) return ordemSort === 'asc' ? -1 : 1;
     if (valA > valB) return ordemSort === 'asc' ? 1 : -1;
     return 0;
@@ -1257,14 +1370,15 @@ function renderizarTabela() {
   const fEmpresa = document.getElementById('filtro-empresa').value;
   const fElemento = document.getElementById('filtro-elemento').value;
   const fEmpenho = document.getElementById('filtro-empenho').value;
-  const fStatus = document.getElementById('filtro-status').value;
+  const fStatus = normalizar(document.getElementById('filtro-status').value);
+
   registros = registros.filter((reg) => {
     return (
-      (fProcesso === '' || reg.processo === fProcesso) &&
-      (fEmpresa === '' || reg.empresa === fEmpresa) &&
-      (fElemento === '' || reg.elemento === fElemento) &&
-      (fEmpenho === '' || reg.empenho === fEmpenho) &&
-      (fStatus === '' || reg.status === fStatus)
+      (fProcesso === '' || normalizar(reg.processo) === fProcesso) &&
+      (fEmpresa === '' || normalizar(reg.empresa) === fEmpresa) &&
+      (fElemento === '' || normalizar(reg.elemento) === fElemento) &&
+      (fEmpenho === '' || normalizar(reg.empenho) === fEmpenho) &&
+      (fStatus === '' || normalizar(reg.status) === fStatus)
     );
   });
 
@@ -1299,18 +1413,37 @@ function renderizarTabela() {
   if (modoAgrupado) {
     const grupos = {};
     registros.forEach((r) => {
-      const emp = r.empresa || 'Sem Empresa';
-      if (!grupos[emp]) grupos[emp] = [];
-      grupos[emp].push(r);
+      const empNorm = normalizar(r.empresa) || 'SEM EMPRESA';
+      if (!grupos[empNorm]) grupos[empNorm] = { nomeFormatado: r.empresa.toUpperCase(), itens: [] };
+      grupos[empNorm].itens.push(r);
     });
-    Object.keys(grupos)
-      .sort()
-      .forEach((empresa) => {
+
+    // MUDANÇA: Os Grupos agora respeitam a coluna que foi clicada!
+    Object.values(grupos)
+      .sort((grupoA, grupoB) => {
+        if (colunaSort === 'empresa') {
+          return ordemSort === 'asc'
+            ? grupoA.nomeFormatado.localeCompare(grupoB.nomeFormatado)
+            : grupoB.nomeFormatado.localeCompare(grupoA.nomeFormatado);
+        }
+
+        let valA = grupoA.itens[0][colunaSort];
+        let valB = grupoB.itens[0][colunaSort];
+        if (valA === undefined || valA === null) valA = '';
+        if (valB === undefined || valB === null) valB = '';
+        if (typeof valA === 'string') valA = valA.toString().toLowerCase();
+        if (typeof valB === 'string') valB = valB.toString().toLowerCase();
+
+        if (valA < valB) return ordemSort === 'asc' ? -1 : 1;
+        if (valA > valB) return ordemSort === 'asc' ? 1 : -1;
+        return 0;
+      })
+      .forEach((grupo) => {
         const trGroup = document.createElement('tr');
         trGroup.className = 'row-group-header';
-        trGroup.innerHTML = `<td colspan="9" style="padding: 10px;"><i class="fa-solid fa-building" style="color: var(--text-muted); margin-right:5px;"></i> ${empresa} <span style="float:right; font-size:12px; font-weight:normal; color:var(--text-muted); padding-top:2px;">${grupos[empresa].length} processo(s)</span></td>`;
+        trGroup.innerHTML = `<td colspan="9" style="padding: 10px;"><i class="fa-solid fa-building" style="color: var(--text-muted); margin-right:5px;"></i> ${grupo.nomeFormatado} <span style="float:right; font-size:12px; font-weight:normal; color:var(--text-muted); padding-top:2px;">${grupo.itens.length} processo(s)</span></td>`;
         tbody.appendChild(trGroup);
-        grupos[empresa].forEach((reg) => {
+        grupo.itens.forEach((reg) => {
           tbody.appendChild(criarElementoTR(reg));
         });
       });
@@ -1597,6 +1730,7 @@ window.irParaProcesso = function (aba, mes, id) {
   localStorage.setItem('ultimaAba', abaAtiva);
   localStorage.setItem('ultimoMes', mesAtivo);
   fecharRelatorio();
+  fecharBusca();
   IDsSelecionados.clear();
   renderizarAbas();
   renderizarSubAbas();
@@ -1640,4 +1774,28 @@ function restaurarBackup(event) {
     document.getElementById('input-restaurar-json').value = '';
   };
   reader.readAsText(file);
+}
+
+function fazerBackupSeguranca() {
+  if (Object.keys(dadosAbas).length === 0) return;
+  const dados = JSON.stringify(
+    { abas: dadosAbas, ativa: abaAtiva, ordemAbas: ordemAbas, ordemSubAbas: ordemSubAbas },
+    null,
+    2,
+  );
+  const blob = new Blob([dados], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Backup_Controle_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  Swal.fire({
+    icon: 'success',
+    title: 'Backup Feito!',
+    text: 'Guarde este arquivo num local seguro.',
+    toast: true,
+    position: 'top-end',
+    timer: 3000,
+  });
 }
