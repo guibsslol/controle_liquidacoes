@@ -36,10 +36,6 @@ let currentUser = null;
 let currentRole = 'guest';
 let currentUserName = '';
 
-<<<<<<< HEAD
-=======
-// Inteligência de Normalização (Ignora acentos e converte tudo em maiúsculo para comparar)
->>>>>>> e7777a441aa83e79f4a4881db21d191f9b57a4a3
 const normalizar = (txt) =>
   txt
     ? txt
@@ -222,15 +218,13 @@ function aplicarInterfaceUsuario() {
 
 function registrarLog(acao, detalhes) {
   if (currentRole === 'guest') return;
-  database
-    .ref('logs')
-    .push({
-      data: new Date().toISOString(),
-      usuario: currentUserName,
-      acao: acao,
-      detalhes: detalhes,
-      local: `${abaAtiva} > ${mesAtivo}`,
-    });
+  database.ref('logs').push({
+    data: new Date().toISOString(),
+    usuario: currentUserName,
+    acao: acao,
+    detalhes: detalhes,
+    local: `${abaAtiva} > ${mesAtivo}`,
+  });
 }
 
 function salvarArquivoAutomaticamente() {
@@ -1056,79 +1050,7 @@ async function moverSelecionados() {
 }
 
 // ==========================================
-<<<<<<< HEAD
 // BUSCA GLOBAL E AUTOCOMPLETAR
-=======
-// BUSCA GLOBAL
-// ==========================================
-function abrirBuscaGlobal() {
-  document.getElementById('modal-busca').style.display = 'flex';
-  document.getElementById('tabela-busca-corpo').innerHTML = '';
-}
-function fecharBusca() {
-  document.getElementById('modal-busca').style.display = 'none';
-}
-function realizarBusca() {
-  const bProc = normalizar(document.getElementById('busca-processo').value);
-  const bEmp = normalizar(document.getElementById('busca-empresa').value);
-  const bElem = normalizar(document.getElementById('busca-elemento').value);
-  const bEmpenho = normalizar(document.getElementById('busca-empenho').value);
-  const bLiq = normalizar(document.getElementById('busca-liquidacao').value);
-  const bStatus = normalizar(document.getElementById('busca-status').value);
-  const bOp = normalizar(document.getElementById('busca-op').value);
-
-  if (!bProc && !bEmp && !bElem && !bEmpenho && !bLiq && !bStatus && !bOp) {
-    Swal.fire('Aviso', 'Preencha pelo menos um campo para buscar.', 'warning');
-    return;
-  }
-
-  let resultados = [];
-  for (let aba in dadosAbas) {
-    for (let mes in dadosAbas[aba]) {
-      dadosAbas[aba][mes].forEach((reg) => {
-        if (reg.isDummy) return;
-        let match = true;
-        if (bProc && !normalizar(reg.processo).includes(bProc)) match = false;
-        if (bEmp && !normalizar(reg.empresa).includes(bEmp)) match = false;
-        if (bElem && !normalizar(reg.elemento).includes(bElem)) match = false;
-        if (bEmpenho && normalizar(reg.empenho) !== bEmpenho) match = false;
-        if (bLiq && normalizar(reg.liquidacao) !== bLiq) match = false;
-        if (bStatus && normalizar(reg.status) !== bStatus) match = false;
-        if (bOp && normalizar(reg.op) !== bOp) match = false;
-
-        if (match) resultados.push({ ...reg, abaLocal: aba, mesLocal: mes });
-      });
-    }
-  }
-
-  const tbody = document.getElementById('tabela-busca-corpo');
-  tbody.innerHTML = '';
-  if (resultados.length === 0) {
-    tbody.innerHTML =
-      '<tr><td colspan="9" style="text-align:center; padding:20px; font-weight:bold; color:var(--text-muted);">Nenhum processo encontrado.</td></tr>';
-    return;
-  }
-
-  resultados.forEach((reg) => {
-    let opVisivel = reg.op
-      ? reg.op
-      : '<span style="background:#fff3cd; color:#d35400; padding:2px 6px; border-radius:3px; font-weight:bold;">S/ OP</span>';
-    let corStatus =
-      reg.status === 'Aguardando Pagamento'
-        ? 'color:#c0392b; font-weight:bold;'
-        : 'color:#27ae60; font-weight:bold;';
-    tbody.innerHTML += `<tr>
-            <td>${reg.processo}</td><td>${reg.empresa}</td><td>${reg.elemento}</td><td>${reg.empenho}</td><td>${reg.liquidacao}</td>
-            <td style="${corStatus}">${reg.status}</td><td>${opVisivel}</td>
-            <td style="font-weight:bold; color:var(--text-muted);">${reg.abaLocal} <i class="fa-solid fa-angle-right"></i> ${reg.mesLocal}</td>
-            <td class="coluna-acao" style="white-space: nowrap;"><button onclick="irParaProcesso('${reg.abaLocal}', '${reg.mesLocal}', ${reg.id})" style="padding:5px 10px; background:#3498db; color:white; border:none; border-radius:4px; cursor:pointer;" title="Ir para o processo"><i class="fa-solid fa-arrow-right"></i></button></td>
-        </tr>`;
-  });
-}
-
-// ==========================================
-// AUTOCOMPLETAR E ORDENAÇÃO
->>>>>>> e7777a441aa83e79f4a4881db21d191f9b57a4a3
 // ==========================================
 function abrirBuscaGlobal() {
   document.getElementById('modal-busca').style.display = 'flex';
@@ -1288,11 +1210,6 @@ function adicionarRegistro() {
   salvarArquivoAutomaticamente();
   renderizarTabela();
   limparInputs();
-<<<<<<< HEAD
-=======
-
-  // AVISO SUTIL
->>>>>>> e7777a441aa83e79f4a4881db21d191f9b57a4a3
   Swal.fire({
     icon: 'success',
     title: 'Processo lançado!',
@@ -1382,30 +1299,16 @@ function atualizarFiltrosDinâmicosDaTela(registrosDaTela) {
     const select = document.getElementById(idSelect);
     const valorAtual = select.value;
     select.innerHTML = `<option value="">Todos</option>`;
-<<<<<<< HEAD
-=======
-
->>>>>>> e7777a441aa83e79f4a4881db21d191f9b57a4a3
     const mapa = new Map();
     valoresRaw.forEach((v) => {
       if (v) mapa.set(normalizar(v), v.toUpperCase());
     });
-<<<<<<< HEAD
     Array.from(mapa.keys())
       .sort()
       .forEach((normKey) => {
         select.innerHTML += `<option value="${normKey}" ${normKey === valorAtual ? 'selected' : ''}>${mapa.get(normKey)}</option>`;
-=======
-
-    Array.from(mapa.keys())
-      .sort()
-      .forEach((normKey) => {
-        const displayVal = mapa.get(normKey);
-        select.innerHTML += `<option value="${normKey}" ${normKey === valorAtual ? 'selected' : ''}>${displayVal}</option>`;
->>>>>>> e7777a441aa83e79f4a4881db21d191f9b57a4a3
       });
   };
-
   const registrosBrutos =
     dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesAtivo]
       ? dadosAbas[abaAtiva][mesAtivo].filter((r) => !r.isDummy)
@@ -1514,7 +1417,6 @@ function renderizarTabela() {
       if (!grupos[empNorm]) grupos[empNorm] = { nomeFormatado: r.empresa.toUpperCase(), itens: [] };
       grupos[empNorm].itens.push(r);
     });
-<<<<<<< HEAD
 
     // MUDANÇA: Os Grupos agora respeitam a coluna que foi clicada!
     Object.values(grupos)
@@ -1540,14 +1442,6 @@ function renderizarTabela() {
         const trGroup = document.createElement('tr');
         trGroup.className = 'row-group-header';
         trGroup.innerHTML = `<td colspan="9" style="padding: 10px;"><i class="fa-solid fa-building" style="color: var(--text-muted); margin-right:5px;"></i> ${grupo.nomeFormatado} <span style="float:right; font-size:12px; font-weight:normal; color:var(--text-muted); padding-top:2px;">${grupo.itens.length} processo(s)</span></td>`;
-=======
-    Object.values(grupos)
-      .sort((a, b) => a.nomeFormatado.localeCompare(b.nomeFormatado))
-      .forEach((grupo) => {
-        const trGroup = document.createElement('tr');
-        trGroup.className = 'row-group-header';
-        trGroup.innerHTML = `<td colspan=\"9\" style=\"padding: 10px;\"><i class=\"fa-solid fa-building\" style=\"color: var(--text-muted); margin-right:5px;\"></i> ${grupo.nomeFormatado} <span style=\"float:right; font-size:12px; font-weight:normal; color:var(--text-muted); padding-top:2px;\">${grupo.itens.length} processo(s)</span></td>`;
->>>>>>> e7777a441aa83e79f4a4881db21d191f9b57a4a3
         tbody.appendChild(trGroup);
         grupo.itens.forEach((reg) => {
           tbody.appendChild(criarElementoTR(reg));
@@ -1567,15 +1461,15 @@ function criarElementoTR(reg) {
 
   if (linhaEmEdicao === reg.id) {
     tr.innerHTML = `
-        <td class=\"coluna-acao\"></td>
-        <td><input type=\"text\" id=\"edit-processo-${reg.id}\" class=\"input-inline\" value=\"${reg.processo}\" oninput=\"mascaraProcesso(event)\"></td>
-        <td><input type=\"text\" id=\"edit-empresa-${reg.id}\" class=\"input-inline\" value=\"${reg.empresa}\"></td>
-        <td><input type=\"text\" id=\"edit-elemento-${reg.id}\" class=\"input-inline\" value=\"${reg.elemento}\"></td>
-        <td><input type=\"text\" id=\"edit-empenho-${reg.id}\" class=\"input-inline\" value=\"${reg.empenho}\"></td>
-        <td><input type=\"text\" id=\"edit-liquidacao-${reg.id}\" class=\"input-inline\" value=\"${reg.liquidacao}\"></td>
-        <td><select id=\"edit-status-${reg.id}\" class=\"input-inline\" style=\"padding: 5px;\"><option value=\"Aguardando Pagamento\" ${reg.status === 'Aguardando Pagamento' ? 'selected' : ''}>Aguardando Pagamento</option><option value=\"Pago\" ${reg.status === 'Pago' ? 'selected' : ''}>Pago</option></select></td>
-        <td><input type=\"text\" id=\"edit-op-${reg.id}\" class=\"input-inline\" value=\"${reg.op}\"></td>
-        <td class=\"coluna-acao\" style=\"white-space: nowrap;\"><button class=\"btn-edit\" onclick=\"salvarEdicaoInline(${reg.id})\"><i class=\"fa-solid fa-check\"></i></button><button class=\"btn-delete\" onclick=\"cancelarEdicaoInline()\"><i class=\"fa-solid fa-xmark\"></i></button></td>
+        <td class="coluna-acao"></td>
+        <td><input type="text" id="edit-processo-${reg.id}" class="input-inline" value="${reg.processo}" oninput="mascaraProcesso(event)"></td>
+        <td><input type="text" id="edit-empresa-${reg.id}" class="input-inline" value="${reg.empresa}"></td>
+        <td><input type="text" id="edit-elemento-${reg.id}" class="input-inline" value="${reg.elemento}"></td>
+        <td><input type="text" id="edit-empenho-${reg.id}" class="input-inline" value="${reg.empenho}"></td>
+        <td><input type="text" id="edit-liquidacao-${reg.id}" class="input-inline" value="${reg.liquidacao}"></td>
+        <td><select id="edit-status-${reg.id}" class="input-inline" style="padding: 5px;"><option value="Aguardando Pagamento" ${reg.status === 'Aguardando Pagamento' ? 'selected' : ''}>Aguardando Pagamento</option><option value="Pago" ${reg.status === 'Pago' ? 'selected' : ''}>Pago</option></select></td>
+        <td><input type="text" id="edit-op-${reg.id}" class="input-inline" value="${reg.op}"></td>
+        <td class="coluna-acao" style="white-space: nowrap;"><button class="btn-edit" onclick="salvarEdicaoInline(${reg.id})"><i class="fa-solid fa-check"></i></button><button class="btn-delete" onclick="cancelarEdicaoInline()"><i class="fa-solid fa-xmark"></i></button></td>
       `;
     tr.style.backgroundColor = 'var(--bg-header)';
     tr.style.boxShadow = 'inset 0 0 5px rgba(52, 152, 219, 0.3)';
@@ -1589,15 +1483,15 @@ function criarElementoTR(reg) {
     }
 
     tr.innerHTML = `
-        <td class=\"coluna-acao\" style=\"text-align: center;\"><input type=\"checkbox\" class=\"chk-linha\" value=\"${reg.id}\" ${isChecked} onchange=\"atualizarSelecao(this, ${reg.id})\" style=\"cursor:pointer;\"></td>
-        <td ondblclick=\"ativarEdicaoEFocus(${reg.id}, 'processo')\" style=\"cursor:pointer;\" title=\"Duplo clique para editar\">${reg.processo}</td>
-        <td ondblclick=\"ativarEdicaoEFocus(${reg.id}, 'empresa')\" style=\"cursor:pointer;\" title=\"Duplo clique para editar\">${reg.empresa}</td>
-        <td ondblclick=\"ativarEdicaoEFocus(${reg.id}, 'elemento')\" style=\"cursor:pointer;\" title=\"Duplo clique para editar\">${reg.elemento}</td>
-        <td class=\"${classEmpenhoLiq}\" ondblclick=\"ativarEdicaoEFocus(${reg.id}, 'empenho')\" style=\"cursor:pointer;\" title=\"Duplo clique para editar\">${reg.empenho}</td>
-        <td class=\"${classEmpenhoLiq}\" ondblclick=\"ativarEdicaoEFocus(${reg.id}, 'liquidacao')\" style=\"cursor:pointer;\" title=\"Duplo clique para editar\">${reg.liquidacao}</td>
-        <td class=\"${classOP}\"><select class=\"status-dropdown\" onchange=\"atualizarStatusDireto(${reg.id}, this.value)\"><option value=\"Aguardando Pagamento\" ${reg.status === 'Aguardando Pagamento' ? 'selected' : ''}>Aguardando Pagamento</option><option value=\"Pago\" ${reg.status === 'Pago' ? 'selected' : ''}>Pago</option></select></td>
-        <td class=\"${classOP}\" ondblclick=\"ativarEdicaoEFocus(${reg.id}, 'op')\" style=\"cursor:pointer;\" title=\"Duplo clique para editar\">${reg.op}</td>
-        <td class=\"coluna-acao\" style=\"white-space: nowrap;\"><button class=\"btn-edit\" onclick=\"ativarEdicaoInline(${reg.id})\"><i class=\"fa-solid fa-pen\"></i></button><button class=\"btn-delete\" onclick=\"apagarLinha(${reg.id})\"><i class=\"fa-solid fa-trash\"></i></button></td>
+        <td class="coluna-acao" style="text-align: center;"><input type="checkbox" class="chk-linha" value="${reg.id}" ${isChecked} onchange="atualizarSelecao(this, ${reg.id})" style="cursor:pointer;"></td>
+        <td ondblclick="ativarEdicaoEFocus(${reg.id}, 'processo')" style="cursor:pointer;" title="Duplo clique para editar">${reg.processo}</td>
+        <td ondblclick="ativarEdicaoEFocus(${reg.id}, 'empresa')" style="cursor:pointer;" title="Duplo clique para editar">${reg.empresa}</td>
+        <td ondblclick="ativarEdicaoEFocus(${reg.id}, 'elemento')" style="cursor:pointer;" title="Duplo clique para editar">${reg.elemento}</td>
+        <td class="${classEmpenhoLiq}" ondblclick="ativarEdicaoEFocus(${reg.id}, 'empenho')" style="cursor:pointer;" title="Duplo clique para editar">${reg.empenho}</td>
+        <td class="${classEmpenhoLiq}" ondblclick="ativarEdicaoEFocus(${reg.id}, 'liquidacao')" style="cursor:pointer;" title="Duplo clique para editar">${reg.liquidacao}</td>
+        <td class="${classOP}"><select class="status-dropdown" onchange="atualizarStatusDireto(${reg.id}, this.value)"><option value="Aguardando Pagamento" ${reg.status === 'Aguardando Pagamento' ? 'selected' : ''}>Aguardando Pagamento</option><option value="Pago" ${reg.status === 'Pago' ? 'selected' : ''}>Pago</option></select></td>
+        <td class="${classOP}" ondblclick="ativarEdicaoEFocus(${reg.id}, 'op')" style="cursor:pointer;" title="Duplo clique para editar">${reg.op}</td>
+        <td class="coluna-acao" style="white-space: nowrap;"><button class="btn-edit" onclick="ativarEdicaoInline(${reg.id})"><i class="fa-solid fa-pen"></i></button><button class="btn-delete" onclick="apagarLinha(${reg.id})"><i class="fa-solid fa-trash"></i></button></td>
       `;
     if (isChecked) tr.style.backgroundColor = 'var(--bg-lote)';
   }
@@ -1784,8 +1678,8 @@ function abrirRelatorioPendencias() {
     const select = document.getElementById(id);
     const uniq = [...new Set(dadosRelatorioGeral.map((r) => r[field]).filter(Boolean))].sort();
     select.innerHTML =
-      '<option value=\"\">Todos</option>' +
-      uniq.map((v) => `<option value=\"${v}\">${v}</option>`).join('');
+      '<option value="">Todos</option>' +
+      uniq.map((v) => `<option value="${v}">${v}</option>`).join('');
   };
   preencher('rel-filtro-processo', 'processo');
   preencher('rel-filtro-empresa', 'empresa');
@@ -1816,18 +1710,18 @@ function filtrarRelatorio() {
   const tbody = document.getElementById('tabela-relatorio-corpo');
   tbody.innerHTML = '';
   if (filtrados.length === 0) {
-    tbody.innerHTML = `<tr><td colspan=\"9\" style=\"text-align:center; padding: 20px; color: #27ae60; font-weight:bold;\"><i class=\"fa-solid fa-check-circle\"></i> Parabéns! Nenhuma pendência encontrada.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 20px; color: #27ae60; font-weight:bold;"><i class="fa-solid fa-check-circle"></i> Parabéns! Nenhuma pendência encontrada.</td></tr>`;
     return;
   }
   filtrados.forEach((reg) => {
     let opVisivel = reg.op
       ? reg.op
-      : '<span style=\"background:#fff3cd; color:#d35400; padding:2px 6px; border-radius:3px; font-weight:bold;\">S/ OP</span>';
+      : '<span style="background:#fff3cd; color:#d35400; padding:2px 6px; border-radius:3px; font-weight:bold;">S/ OP</span>';
     let corStatus =
       reg.status === 'Aguardando Pagamento'
         ? 'color:#c0392b; font-weight:bold;'
         : 'color:#27ae60; font-weight:bold;';
-    tbody.innerHTML += ` <tr> <td>${reg.processo}</td><td>${reg.empresa}</td><td>${reg.elemento}</td><td>${reg.empenho}</td><td>${reg.liquidacao}</td> <td style=\"${corStatus}\">${reg.status}</td><td>${opVisivel}</td> <td style=\"font-weight:bold; color:var(--text-muted);\">${reg.abaLocal} <i class=\"fa-solid fa-angle-right\"></i> ${reg.mesLocal}</td> <td class=\"coluna-acao\" style=\"white-space: nowrap;\"><button onclick=\"irParaProcesso('${reg.abaLocal}', '${reg.mesLocal}', ${reg.id})\" style=\"padding:5px 10px; background:#3498db; color:white; border:none; border-radius:4px; cursor:pointer;\" title=\"Ir para o processo\"><i class=\"fa-solid fa-arrow-right\"></i></button></td> </tr>`;
+    tbody.innerHTML += ` <tr> <td>${reg.processo}</td><td>${reg.empresa}</td><td>${reg.elemento}</td><td>${reg.empenho}</td><td>${reg.liquidacao}</td> <td style="${corStatus}">${reg.status}</td><td>${opVisivel}</td> <td style="font-weight:bold; color:var(--text-muted);">${reg.abaLocal} <i class="fa-solid fa-angle-right"></i> ${reg.mesLocal}</td> <td class="coluna-acao" style="white-space: nowrap;"><button onclick="irParaProcesso('${reg.abaLocal}', '${reg.mesLocal}', ${reg.id})" style="padding:5px 10px; background:#3498db; color:white; border:none; border-radius:4px; cursor:pointer;" title="Ir para o processo"><i class="fa-solid fa-arrow-right"></i></button></td> </tr>`;
   });
 }
 window.irParaProcesso = function (aba, mes, id) {
@@ -1842,7 +1736,7 @@ window.irParaProcesso = function (aba, mes, id) {
   renderizarSubAbas();
   renderizarTabela();
   setTimeout(() => {
-    const btnEdit = document.querySelector(`button[onclick=\"ativarEdicaoInline(${id})\"]`);
+    const btnEdit = document.querySelector(`button[onclick="ativarEdicaoInline(${id})"]`);
     if (btnEdit) {
       const tr = btnEdit.closest('tr');
       tr.style.transition = 'background-color 1s';
