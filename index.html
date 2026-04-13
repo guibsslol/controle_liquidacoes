@@ -182,22 +182,39 @@
     </div>
 
     <div class="abas-container">
-      <div id="lista-abas" class="lista-abas"></div>
-      <button class="btn-nova-aba block-guest" onclick="criarNovaAba()"><i class="fa-solid fa-plus"></i> Novo
-        Assunto</button>
-      <button class="btn-nova-aba block-guest" onclick="agruparAbas()"
-        style="background-color: #9b59b6; margin-left: 5px"><i class="fa-solid fa-object-group"></i> Agrupar</button>
-      <button class="btn-nova-aba block-guest" onclick="moverProcessosLote()"
-        style="background-color: #e67e22; margin-left: 5px"><i class="fa-solid fa-wand-magic-sparkles"></i> Mover
-        Lote</button>
+      <div
+        style="display: flex; align-items: center; gap: 10px; background: var(--bg-body); padding: 5px 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <label style="font-size: 13px; font-weight: bold; color: var(--text-muted);"><i
+            class="fa-solid fa-folder-tree"></i> Assunto Atual:</label>
+        <select id="dropdown-abas" onchange="mudarAbaDropdown(this.value)"
+          style="border: none; background: transparent; font-size: 15px; font-weight: bold; color: #2980b9; cursor: pointer; outline: none; padding: 0; min-width: 200px; max-width: 300px; text-overflow: ellipsis;"></select>
 
-      <div class="acoes-finais"
-        style="margin-left: auto; display: flex; gap: 10px; margin-bottom: 5px; pointer-events: auto;">
+        <div class="block-guest"
+          style="display: flex; gap: 5px; border-left: 1px solid var(--border-color); padding-left: 10px;">
+          <button onclick="editarNomeAbaAtiva()"
+            style="background: none; border: none; color: #f39c12; font-size: 14px; padding: 5px; box-shadow: none;"
+            title="Renomear Assunto Atual"><i class="fa-solid fa-pen"></i></button>
+          <button onclick="excluirAbaAtiva()"
+            style="background: none; border: none; color: #e74c3c; font-size: 14px; padding: 5px; box-shadow: none;"
+            title="Excluir Assunto Atual"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 5px;">
+        <button class="btn-nova-aba block-guest" onclick="criarNovaAba()"><i class="fa-solid fa-plus"></i> Novo
+          Assunto</button>
+        <button class="btn-nova-aba block-guest" onclick="agruparAbas()" style="background-color: #9b59b6;"><i
+            class="fa-solid fa-object-group"></i> Agrupar</button>
+        <button class="btn-nova-aba block-guest" onclick="moverProcessosLote()" style="background-color: #e67e22;"><i
+            class="fa-solid fa-wand-magic-sparkles"></i> Mover Lote</button>
+      </div>
+
+      <div class="acoes-finais">
         <button class="btn-excel block-guest" onclick="exportarParaExcel()"
-          style="background-color: #27ae60; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);"><i
+          style="background-color: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15); font-weight: bold;"><i
             class="fa-solid fa-file-excel"></i> Exportar</button>
         <button onclick="window.print()"
-          style="background-color: #95a5a6; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);"><i
+          style="background-color: #95a5a6; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15); font-weight: bold;"><i
             class="fa-solid fa-print"></i> Imprimir</button>
       </div>
     </div>
@@ -382,37 +399,63 @@
     <div class="modal-content">
       <div class="modal-header">
         <h3><i class="fa-solid fa-magnifying-glass-chart" style="color: #e74c3c;"></i> Relatório Global de Pendências
-        </h3><button onclick="fecharRelatorio()" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+        </h3>
+        <button onclick="fecharRelatorio()" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body">
         <div class="filtros-container" style="margin-top: 0; margin-bottom: 15px; padding: 10px; flex-shrink: 0;">
           <h4 style="margin: 0 0 10px 0; font-size: 13px;"><i class="fa-solid fa-filter"></i> Filtrar Pendências</h4>
-          <div class="form-row" style="margin-bottom: 0;"><select id="rel-filtro-processo"
-              onchange="filtrarRelatorio()">
-              <option value="">Todos</option>
-            </select><select id="rel-filtro-empresa" onchange="filtrarRelatorio()">
-              <option value="">Todas</option>
-            </select><select id="rel-filtro-elemento" onchange="filtrarRelatorio()">
-              <option value="">Todos</option>
-            </select><select id="rel-filtro-status" onchange="filtrarRelatorio()">
-              <option value="">Qualquer</option>
-              <option value="Aguardando Pagamento">Aguardando Pagamento</option>
-              <option value="Sem OP">Pagas Sem OP</option>
-            </select></div>
+
+          <div class="form-row" style="margin-bottom: 10px;">
+            <div class="input-group" style="flex: 2;"><input type="text" id="rel-busca"
+                placeholder="Buscar qualquer texto..." oninput="filtrarRelatorio()" class="input-inline"></div>
+            <div class="input-group"><select id="rel-filtro-aba" onchange="filtrarRelatorio()">
+                <option value="">Todos os Assuntos</option>
+              </select></div>
+            <div class="input-group"><select id="rel-filtro-mes" onchange="filtrarRelatorio()">
+                <option value="">Todos os Meses</option>
+              </select></div>
+          </div>
+
+          <div class="form-row" style="margin-bottom: 0;">
+            <div class="input-group"><select id="rel-filtro-processo" onchange="filtrarRelatorio()">
+                <option value="">Processos</option>
+              </select></div>
+            <div class="input-group"><select id="rel-filtro-empresa" onchange="filtrarRelatorio()">
+                <option value="">Empresas</option>
+              </select></div>
+            <div class="input-group"><select id="rel-filtro-elemento" onchange="filtrarRelatorio()">
+                <option value="">Elementos</option>
+              </select></div>
+            <div class="input-group"><select id="rel-filtro-status" onchange="filtrarRelatorio()">
+                <option value="">Qualquer Status</option>
+                <option value="Aguardando">Aguardando Pagamento</option>
+                <option value="SemOP">Pagas Sem OP</option>
+              </select></div>
+          </div>
         </div>
+
         <div
           style="flex: 1; overflow-y: auto; border: 1px solid var(--border-color); border-bottom: none; border-radius: 8px 8px 0 0; background: var(--bg-container);">
           <table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; margin: 0;">
             <thead>
               <tr>
-                <th>Processo</th>
-                <th>Empresa</th>
-                <th>Elemento</th>
-                <th>Empenho</th>
-                <th>Liq.</th>
-                <th>Estado</th>
-                <th>OP</th>
-                <th>Localização</th>
+                <th onclick="ordenarRelatorio('processo')" class="th-sortable">Processo <i class="fa-solid fa-sort"
+                    id="rel-sort-icon-processo"></i></th>
+                <th onclick="ordenarRelatorio('empresa')" class="th-sortable">Empresa <i class="fa-solid fa-sort"
+                    id="rel-sort-icon-empresa"></i></th>
+                <th onclick="ordenarRelatorio('elemento')" class="th-sortable">Elemento <i class="fa-solid fa-sort"
+                    id="rel-sort-icon-elemento"></i></th>
+                <th onclick="ordenarRelatorio('empenho')" class="th-sortable">Empenho <i class="fa-solid fa-sort"
+                    id="rel-sort-icon-empenho"></i></th>
+                <th onclick="ordenarRelatorio('liquidacao')" class="th-sortable">Liq. <i class="fa-solid fa-sort"
+                    id="rel-sort-icon-liquidacao"></i></th>
+                <th onclick="ordenarRelatorio('status')" class="th-sortable">Estado <i class="fa-solid fa-sort"
+                    id="rel-sort-icon-status"></i></th>
+                <th onclick="ordenarRelatorio('op')" class="th-sortable">OP <i class="fa-solid fa-sort"
+                    id="rel-sort-icon-op"></i></th>
+                <th onclick="ordenarRelatorio('abaLocal')" class="th-sortable">Localização <i class="fa-solid fa-sort"
+                    id="rel-sort-icon-abaLocal"></i></th>
                 <th class="coluna-acao">Ir</th>
               </tr>
             </thead>
@@ -422,6 +465,7 @@
       </div>
     </div>
   </div>
+
   <div id="modal-dashboard" class="modal-overlay" style="display: none;">
     <div class="modal-content" style="max-width: 900px;">
       <div class="modal-header">

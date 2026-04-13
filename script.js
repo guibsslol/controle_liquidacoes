@@ -13,25 +13,23 @@ const database = firebase.database();
 const auth = firebase.auth();
 const adminAuthApp = firebase.initializeApp(firebaseConfig, 'AdminAuthApp');
 
-let dadosAbas = { 'Assunto Geral': { Janeiro: [] } };
+let dadosAbas = { 'ASSUNTO GERAL': { JANEIRO: [] } };
 let ordemAbas = [];
 let ordemSubAbas = {};
-let abaAtiva = 'Assunto Geral';
-let mesAtivo = 'Janeiro';
+let abaAtiva = 'ASSUNTO GERAL';
+let mesAtivo = 'JANEIRO';
 
-let abaArrastada = null;
 let subAbaArrastada = null;
 let linhaEmEdicao = null;
-
-// ORDENAÇÃO PADRÃO: id desc (Mais recentes primeiro)
 let colunaSort = 'id';
 let ordemSort = 'desc';
-
 let IDsSelecionados = new Set();
 let dadosRelatorioGeral = [];
 let chartStatus = null;
 let chartEmpresas = null;
 
+let relColunaSort = 'processo';
+let relOrdemSort = 'asc';
 let currentUser = null;
 let currentRole = 'guest';
 let currentUserName = '';
@@ -44,6 +42,14 @@ const normalizar = (txt) =>
         .toUpperCase()
         .trim()
     : '';
+
+function sanitizarNomeFirebase(nome) {
+  if (!nome) return 'SEM NOME';
+  return nome
+    .replace(/[.#$\[\]/]/g, '-')
+    .trim()
+    .toUpperCase();
+}
 
 function toggleTema() {
   const isDark = document.body.getAttribute('data-theme') === 'dark';
@@ -171,13 +177,13 @@ window.onload = () => {
       mesAtivo =
         mesMemoria && dadosAbas[abaAtiva] && dadosAbas[abaAtiva][mesMemoria]
           ? mesMemoria
-          : ordemSubAbas[abaAtiva][0] || 'Geral';
+          : ordemSubAbas[abaAtiva][0] || 'GERAL';
     } else {
-      dadosAbas = { 'Assunto Geral': { Janeiro: [] } };
-      ordemAbas = ['Assunto Geral'];
-      ordemSubAbas = { 'Assunto Geral': ['Janeiro'] };
-      abaAtiva = 'Assunto Geral';
-      mesAtivo = 'Janeiro';
+      dadosAbas = { 'ASSUNTO GERAL': { JANEIRO: [] } };
+      ordemAbas = ['ASSUNTO GERAL'];
+      ordemSubAbas = { 'ASSUNTO GERAL': ['JANEIRO'] };
+      abaAtiva = 'ASSUNTO GERAL';
+      mesAtivo = 'JANEIRO';
     }
     renderizarAbas();
     renderizarSubAbas();
@@ -218,13 +224,15 @@ function aplicarInterfaceUsuario() {
 
 function registrarLog(acao, detalhes) {
   if (currentRole === 'guest') return;
-  database.ref('logs').push({
-    data: new Date().toISOString(),
-    usuario: currentUserName,
-    acao: acao,
-    detalhes: detalhes,
-    local: `${abaAtiva} > ${mesAtivo}`,
-  });
+  database
+    .ref('logs')
+    .push({
+      data: new Date().toISOString(),
+      usuario: currentUserName,
+      acao: acao,
+      detalhes: detalhes,
+      local: `${abaAtiva} > ${mesAtivo}`,
+    });
 }
 
 function salvarArquivoAutomaticamente() {
@@ -502,69 +510,35 @@ function limparLogs() {
 }
 
 // ==========================================
-// 2. SISTEMA DE ABAS E SUB-ABAS
+// 2. SISTEMA DE ABAS (AGORA NO MENU DROPDOWN)
 // ==========================================
 function renderizarAbas() {
-  const listaAbas = document.getElementById('lista-abas');
-  listaAbas.innerHTML = '';
+  const selectAbas = document.getElementById('dropdown-abas');
+  if (!selectAbas) return;
+  selectAbas.innerHTML = '';
+
   ordemAbas.forEach((nomeAba) => {
     if (!dadosAbas[nomeAba]) return;
-    const divAba = document.createElement('div');
-    divAba.className = `aba ${nomeAba === abaAtiva ? 'ativa' : ''}`;
-    divAba.setAttribute('draggable', currentRole !== 'guest');
-    divAba.innerHTML = `<span class="titulo-aba">${nomeAba}</span><div class="aba-acoes"><button class="btn-aba-acao edit" onclick="event.stopPropagation(); editarNomeAba('${nomeAba}')"><i class="fa-solid fa-pen"></i></button><button class="btn-aba-acao" onclick="event.stopPropagation(); excluirAba('${nomeAba}')"><i class="fa-solid fa-trash"></i></button></div>`;
-
-    divAba.onclick = () => {
-      abaAtiva = nomeAba;
-      mesAtivo = ordemSubAbas[abaAtiva][0] || 'Geral';
-      linhaEmEdicao = null;
-      IDsSelecionados.clear();
-      localStorage.setItem('ultimaAba', abaAtiva);
-      localStorage.setItem('ultimoMes', mesAtivo);
-      salvarArquivoAutomaticamente();
-      renderizarAbas();
-      renderizarSubAbas();
-      renderizarTabela();
-    };
-
-    if (currentRole !== 'guest') {
-      divAba.addEventListener('dragstart', function (e) {
-        abaArrastada = nomeAba;
-        e.dataTransfer.effectAllowed = 'move';
-        setTimeout(() => (this.style.opacity = '0.4'), 0);
-      });
-      divAba.addEventListener('dragend', function () {
-        this.style.opacity = '1';
-        document.querySelectorAll('.aba').forEach((a) => a.classList.remove('drag-over'));
-        abaArrastada = null;
-      });
-      divAba.addEventListener('dragover', function (e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        return false;
-      });
-      divAba.addEventListener('dragenter', function (e) {
-        if (nomeAba !== abaArrastada) this.classList.add('drag-over');
-      });
-      divAba.addEventListener('dragleave', function () {
-        this.classList.remove('drag-over');
-      });
-      divAba.addEventListener('drop', function (e) {
-        e.stopPropagation();
-        this.classList.remove('drag-over');
-        if (abaArrastada !== nomeAba) {
-          ordemAbas.splice(ordemAbas.indexOf(abaArrastada), 1);
-          ordemAbas.splice(ordemAbas.indexOf(nomeAba), 0, abaArrastada);
-          registrarLog('Ordenação', `Reordenou o assunto ${abaArrastada}`);
-          salvarArquivoAutomaticamente();
-          renderizarAbas();
-        }
-        return false;
-      });
-    }
-    listaAbas.appendChild(divAba);
+    const option = document.createElement('option');
+    option.value = nomeAba;
+    option.textContent = nomeAba;
+    if (nomeAba === abaAtiva) option.selected = true;
+    selectAbas.appendChild(option);
   });
 }
+
+window.mudarAbaDropdown = function (nomeAba) {
+  if (!dadosAbas[nomeAba]) return;
+  abaAtiva = nomeAba;
+  mesAtivo = ordemSubAbas[abaAtiva][0] || 'GERAL';
+  linhaEmEdicao = null;
+  IDsSelecionados.clear();
+  localStorage.setItem('ultimaAba', abaAtiva);
+  localStorage.setItem('ultimoMes', mesAtivo);
+  salvarArquivoAutomaticamente();
+  renderizarSubAbas();
+  renderizarTabela();
+};
 
 function renderizarSubAbas() {
   const listaMeses = document.getElementById('lista-sub-abas');
@@ -643,7 +617,7 @@ async function duplicarMes() {
     showCancelButton: true,
     preConfirm: () => {
       const o = document.getElementById('swal-origem').value;
-      const n = document.getElementById('swal-novo-mes').value.trim();
+      const n = sanitizarNomeFirebase(document.getElementById('swal-novo-mes').value);
       if (!n || dadosAbas[abaAtiva][n])
         return Swal.showValidationMessage('Nome inválido ou existente!');
       return {
@@ -683,15 +657,19 @@ async function duplicarMes() {
   }
 }
 
+window.editarNomeAbaAtiva = function () {
+  editarNomeAba(abaAtiva);
+};
 async function editarNomeAba(nomeAtual) {
   if (currentRole === 'guest') return;
-  const { value: novoNome } = await Swal.fire({
-    title: 'Renomear',
+  const { value: novoNomeRaw } = await Swal.fire({
+    title: 'Renomear Assunto',
     input: 'text',
     inputValue: nomeAtual,
     showCancelButton: true,
   });
-  if (novoNome && novoNome.trim() !== '' && novoNome !== nomeAtual && !dadosAbas[novoNome]) {
+  const novoNome = sanitizarNomeFirebase(novoNomeRaw);
+  if (novoNome && novoNome !== nomeAtual && !dadosAbas[novoNome]) {
     dadosAbas[novoNome] = dadosAbas[nomeAtual];
     delete dadosAbas[nomeAtual];
     ordemAbas[ordemAbas.indexOf(nomeAtual)] = novoNome;
@@ -706,6 +684,10 @@ async function editarNomeAba(nomeAtual) {
     renderizarAbas();
   }
 }
+
+window.excluirAbaAtiva = function () {
+  excluirAba(abaAtiva);
+};
 function excluirAba(nomeAba) {
   if (currentRole === 'guest') return;
   if (Object.keys(dadosAbas).length > 1) {
@@ -732,40 +714,41 @@ function excluirAba(nomeAba) {
     Swal.fire('Atenção', 'Mínimo de 1 aba.', 'info');
   }
 }
+
 async function criarNovaAba() {
   if (currentRole === 'guest') return;
-  const { value: nome } = await Swal.fire({
+  const { value: nomeRaw } = await Swal.fire({
     title: 'Novo Assunto',
     input: 'text',
     showCancelButton: true,
   });
-  if (nome && nome.trim() !== '' && !dadosAbas[nome]) {
-    dadosAbas[nome] = { Geral: [] };
+  const nome = sanitizarNomeFirebase(nomeRaw);
+  if (nome && nome !== 'SEM NOME' && !dadosAbas[nome]) {
+    dadosAbas[nome] = { GERAL: [] };
     ordemAbas.push(nome);
-    ordemSubAbas[nome] = ['Geral'];
+    ordemSubAbas[nome] = ['GERAL'];
     abaAtiva = nome;
-    mesAtivo = 'Geral';
+    mesAtivo = 'GERAL';
     registrarLog('Novo Assunto', `Criou o assunto ${nome}`);
     salvarArquivoAutomaticamente();
     renderizarAbas();
     renderizarSubAbas();
     renderizarTabela();
+  } else if (dadosAbas[nome]) {
+    Swal.fire('Aviso', 'Este assunto já existe.', 'warning');
   }
 }
+
 async function editarNomeMes(nomeAtual) {
   if (currentRole === 'guest') return;
-  const { value: novoNome } = await Swal.fire({
+  const { value: novoNomeRaw } = await Swal.fire({
     title: 'Renomear Mês',
     input: 'text',
     inputValue: nomeAtual,
     showCancelButton: true,
   });
-  if (
-    novoNome &&
-    novoNome.trim() !== '' &&
-    novoNome !== nomeAtual &&
-    !dadosAbas[abaAtiva][novoNome]
-  ) {
+  const novoNome = sanitizarNomeFirebase(novoNomeRaw);
+  if (novoNome && novoNome !== nomeAtual && !dadosAbas[abaAtiva][novoNome]) {
     dadosAbas[abaAtiva][novoNome] = dadosAbas[abaAtiva][nomeAtual];
     delete dadosAbas[abaAtiva][nomeAtual];
     ordemSubAbas[abaAtiva][ordemSubAbas[abaAtiva].indexOf(nomeAtual)] = novoNome;
@@ -777,6 +760,7 @@ async function editarNomeMes(nomeAtual) {
     renderizarSubAbas();
   }
 }
+
 function excluirMes(nomeMes) {
   if (currentRole === 'guest') return;
   if (Object.keys(dadosAbas[abaAtiva]).length > 1) {
@@ -800,14 +784,16 @@ function excluirMes(nomeMes) {
     Swal.fire('Atenção', 'Mínimo de 1 mês.', 'info');
   }
 }
+
 async function criarNovoMes() {
   if (currentRole === 'guest') return;
-  const { value: nome } = await Swal.fire({
+  const { value: nomeRaw } = await Swal.fire({
     title: 'Novo Mês',
     input: 'text',
     showCancelButton: true,
   });
-  if (nome && nome.trim() !== '' && !dadosAbas[abaAtiva][nome]) {
+  const nome = sanitizarNomeFirebase(nomeRaw);
+  if (nome && nome !== 'SEM NOME' && !dadosAbas[abaAtiva][nome]) {
     dadosAbas[abaAtiva][nome] = [];
     ordemSubAbas[abaAtiva].push(nome);
     mesAtivo = nome;
@@ -815,6 +801,8 @@ async function criarNovoMes() {
     salvarArquivoAutomaticamente();
     renderizarSubAbas();
     renderizarTabela();
+  } else if (dadosAbas[abaAtiva][nome]) {
+    Swal.fire('Aviso', 'Mês já existe.', 'warning');
   }
 }
 
@@ -840,7 +828,7 @@ async function agruparAbas() {
       const selecionados = Array.from(document.querySelectorAll('.swal-aba-checkbox:checked')).map(
         (cb) => cb.value,
       );
-      const novoNome = document.getElementById('swal-input-novo-nome').value.trim();
+      const novoNome = sanitizarNomeFirebase(document.getElementById('swal-input-novo-nome').value);
       if (selecionados.length === 0 || !novoNome)
         return Swal.showValidationMessage('Preencha os dados!');
       return { selecionados, novoNome };
@@ -856,7 +844,7 @@ async function agruparAbas() {
     }
     selecionados.forEach((abaAntiga) => {
       ordemSubAbas[abaAntiga].forEach((mesAntigo) => {
-        let novoNomeMes = abaAntiga.replace('LIQ. ', '').replace('LIQ.', '').trim();
+        let novoNomeMes = sanitizarNomeFirebase(abaAntiga.replace('LIQ. ', '').replace('LIQ.', ''));
         let registosReais = dadosAbas[abaAntiga][mesAntigo].filter((r) => !r.isDummy);
 
         if (!ordemSubAbas[novoNome].includes(novoNomeMes)) ordemSubAbas[novoNome].push(novoNomeMes);
@@ -902,7 +890,7 @@ async function moverProcessosLote() {
       const tipo = document.getElementById('swal-move-tipo').value;
       const valor = document.getElementById('swal-move-valor').value.trim();
       const abaDestino = document.getElementById('swal-move-aba').value;
-      const mesDestino = document.getElementById('swal-move-mes').value.trim();
+      const mesDestino = sanitizarNomeFirebase(document.getElementById('swal-move-mes').value);
       if (!valor || !mesDestino) return Swal.showValidationMessage('Preencha tudo!');
       return { tipo, valor, abaDestino, mesDestino };
     },
@@ -1015,10 +1003,12 @@ async function moverSelecionados() {
     preConfirm: () => {
       const abaDestino = document.getElementById('swal-move-sel-aba').value;
       let mesDestino = document.getElementById('swal-move-sel-mes').value;
-      const mesNovo = document.getElementById('swal-move-sel-mes-novo').value.trim();
+      const mesNovo = sanitizarNomeFirebase(
+        document.getElementById('swal-move-sel-mes-novo').value,
+      );
       if (!abaDestino) return Swal.showValidationMessage('Selecione aba!');
       if (!mesDestino && !mesNovo) return Swal.showValidationMessage('Selecione mês!');
-      if (mesNovo) mesDestino = mesNovo;
+      if (mesNovo && mesNovo !== 'SEM NOME') mesDestino = mesNovo;
       return { abaDestino, mesDestino };
     },
   });
@@ -1147,14 +1137,13 @@ function atualizarAutocompletarAba() {
   preencherListas('lista-empenhos', emps2);
 }
 
-// MUDANÇA: Função de ordenação de colunas reescrita com 3 estados
 function ordenarTabela(coluna) {
   if (colunaSort === coluna) {
     if (ordemSort === 'asc') ordemSort = 'desc';
     else {
       colunaSort = 'id';
       ordemSort = 'desc';
-    } // Volta ao Padrão
+    }
   } else {
     colunaSort = coluna;
     ordemSort = 'asc';
@@ -1339,7 +1328,7 @@ function renderizarTabela() {
       ? [...dadosAbas[abaAtiva][mesAtivo]].filter((r) => !r.isDummy)
       : [];
 
-  document.querySelectorAll('.th-sortable i').forEach((icon) => {
+  document.querySelectorAll('#tabela-processos .th-sortable i').forEach((icon) => {
     icon.className = 'fa-solid fa-sort';
     icon.parentElement.classList.remove('sorted-asc', 'sorted-desc');
   });
@@ -1352,7 +1341,6 @@ function renderizarTabela() {
     }
   }
 
-  // MUDANÇA: Ordenação genérica para Texto ou Números (ID)
   registros.sort((a, b) => {
     let valA = a[colunaSort];
     let valB = b[colunaSort];
@@ -1418,7 +1406,6 @@ function renderizarTabela() {
       grupos[empNorm].itens.push(r);
     });
 
-    // MUDANÇA: Os Grupos agora respeitam a coluna que foi clicada!
     Object.values(grupos)
       .sort((grupoA, grupoB) => {
         if (colunaSort === 'empresa') {
@@ -1543,14 +1530,16 @@ function processarImportacaoExcel(event) {
     }).then((result) => {
       if (result.isConfirmed) {
         let totalImportados = 0;
-        workbook.SheetNames.forEach((sheetName) => {
-          const worksheet = workbook.Sheets[sheetName];
+        workbook.SheetNames.forEach((sheetNameRaw) => {
+          const sheetName = sanitizarNomeFirebase(sheetNameRaw);
+          const worksheet = workbook.Sheets[sheetNameRaw];
           const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
           if (!dadosAbas[sheetName]) {
-            dadosAbas[sheetName] = { Geral: [] };
+            dadosAbas[sheetName] = { GERAL: [] };
             ordemAbas.push(sheetName);
-            ordemSubAbas[sheetName] = ['Geral'];
-          } else if (!dadosAbas[sheetName]['Geral']) dadosAbas[sheetName]['Geral'] = [];
+            ordemSubAbas[sheetName] = ['GERAL'];
+          } else if (!dadosAbas[sheetName]['GERAL']) dadosAbas[sheetName]['GERAL'] = [];
+
           for (let i = 1; i < json.length; i++) {
             const row = json[i];
             if (!row || row.length === 0) continue;
@@ -1561,7 +1550,7 @@ function processarImportacaoExcel(event) {
             let procFormatado = proc;
             if (procFormatado && !procFormatado.toUpperCase().startsWith('BJI-'))
               procFormatado = 'BJI-' + procFormatado;
-            dadosAbas[sheetName]['Geral'].push({
+            dadosAbas[sheetName]['GERAL'].push({
               id: Date.now() + Math.floor(Math.random() * 100000),
               processo: procFormatado,
               empresa: emp,
@@ -1574,8 +1563,8 @@ function processarImportacaoExcel(event) {
             totalImportados++;
           }
         });
-        abaAtiva = workbook.SheetNames[0];
-        mesAtivo = 'Geral';
+        abaAtiva = sanitizarNomeFirebase(workbook.SheetNames[0]);
+        mesAtivo = 'GERAL';
         registrarLog('Importação', `Importou ${totalImportados} registos de Excel`);
         salvarArquivoAutomaticamente();
         renderizarAbas();
@@ -1674,6 +1663,7 @@ function abrirRelatorioPendencias() {
       });
     }
   }
+
   const preencher = (id, field) => {
     const select = document.getElementById(id);
     const uniq = [...new Set(dadosRelatorioGeral.map((r) => r[field]).filter(Boolean))].sort();
@@ -1681,38 +1671,107 @@ function abrirRelatorioPendencias() {
       '<option value="">Todos</option>' +
       uniq.map((v) => `<option value="${v}">${v}</option>`).join('');
   };
+
   preencher('rel-filtro-processo', 'processo');
   preencher('rel-filtro-empresa', 'empresa');
   preencher('rel-filtro-elemento', 'elemento');
+  preencher('rel-filtro-aba', 'abaLocal');
+  preencher('rel-filtro-mes', 'mesLocal');
+
   document.getElementById('rel-filtro-status').value = '';
+  document.getElementById('rel-busca').value = '';
+  relColunaSort = 'processo';
+  relOrdemSort = 'asc';
+
   document.getElementById('modal-relatorio').style.display = 'flex';
   filtrarRelatorio();
 }
+
 function fecharRelatorio() {
   document.getElementById('modal-relatorio').style.display = 'none';
 }
+
+function ordenarRelatorio(coluna) {
+  if (relColunaSort === coluna) {
+    if (relOrdemSort === 'asc') relOrdemSort = 'desc';
+    else {
+      relColunaSort = 'processo';
+      relOrdemSort = 'asc';
+    }
+  } else {
+    relColunaSort = coluna;
+    relOrdemSort = 'asc';
+  }
+  filtrarRelatorio();
+}
+
 function filtrarRelatorio() {
   const fProc = document.getElementById('rel-filtro-processo').value;
   const fEmp = document.getElementById('rel-filtro-empresa').value;
   const fElem = document.getElementById('rel-filtro-elemento').value;
   const fStatus = document.getElementById('rel-filtro-status').value;
+  const fAba = document.getElementById('rel-filtro-aba').value;
+  const fMes = document.getElementById('rel-filtro-mes').value;
+  const busca = normalizar(document.getElementById('rel-busca').value);
+
   let filtrados = dadosRelatorioGeral.filter((reg) => {
     let matchStatus = true;
     if (fStatus === 'Aguardando') matchStatus = reg.status === 'Aguardando Pagamento';
     if (fStatus === 'SemOP') matchStatus = !reg.op && reg.status === 'Pago';
+
+    let matchBusca = true;
+    if (busca) {
+      matchBusca =
+        normalizar(reg.processo).includes(busca) ||
+        normalizar(reg.empresa).includes(busca) ||
+        normalizar(reg.elemento).includes(busca) ||
+        normalizar(reg.empenho).includes(busca) ||
+        normalizar(reg.liquidacao).includes(busca) ||
+        normalizar(reg.op).includes(busca);
+    }
+
     return (
       (!fProc || reg.processo === fProc) &&
       (!fEmp || reg.empresa === fEmp) &&
       (!fElem || reg.elemento === fElem) &&
-      matchStatus
+      (!fAba || reg.abaLocal === fAba) &&
+      (!fMes || reg.mesLocal === fMes) &&
+      matchStatus &&
+      matchBusca
     );
   });
+
+  document.querySelectorAll('#modal-relatorio .th-sortable i').forEach((icon) => {
+    icon.className = 'fa-solid fa-sort';
+    icon.parentElement.classList.remove('sorted-asc', 'sorted-desc');
+  });
+  const currentIcon = document.getElementById(`rel-sort-icon-${relColunaSort}`);
+  if (currentIcon) {
+    currentIcon.className =
+      relOrdemSort === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down';
+    currentIcon.parentElement.classList.add(`sorted-${relOrdemSort}`);
+  }
+
+  filtrados.sort((a, b) => {
+    let valA = a[relColunaSort];
+    let valB = b[relColunaSort];
+    if (valA === undefined || valA === null) valA = '';
+    if (valB === undefined || valB === null) valB = '';
+    if (typeof valA === 'string') valA = valA.toString().toLowerCase();
+    if (typeof valB === 'string') valB = valB.toString().toLowerCase();
+
+    if (valA < valB) return relOrdemSort === 'asc' ? -1 : 1;
+    if (valA > valB) return relOrdemSort === 'asc' ? 1 : -1;
+    return 0;
+  });
+
   const tbody = document.getElementById('tabela-relatorio-corpo');
   tbody.innerHTML = '';
   if (filtrados.length === 0) {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 20px; color: #27ae60; font-weight:bold;"><i class="fa-solid fa-check-circle"></i> Parabéns! Nenhuma pendência encontrada.</td></tr>`;
     return;
   }
+
   filtrados.forEach((reg) => {
     let opVisivel = reg.op
       ? reg.op
@@ -1724,6 +1783,7 @@ function filtrarRelatorio() {
     tbody.innerHTML += ` <tr> <td>${reg.processo}</td><td>${reg.empresa}</td><td>${reg.elemento}</td><td>${reg.empenho}</td><td>${reg.liquidacao}</td> <td style="${corStatus}">${reg.status}</td><td>${opVisivel}</td> <td style="font-weight:bold; color:var(--text-muted);">${reg.abaLocal} <i class="fa-solid fa-angle-right"></i> ${reg.mesLocal}</td> <td class="coluna-acao" style="white-space: nowrap;"><button onclick="irParaProcesso('${reg.abaLocal}', '${reg.mesLocal}', ${reg.id})" style="padding:5px 10px; background:#3498db; color:white; border:none; border-radius:4px; cursor:pointer;" title="Ir para o processo"><i class="fa-solid fa-arrow-right"></i></button></td> </tr>`;
   });
 }
+
 window.irParaProcesso = function (aba, mes, id) {
   abaAtiva = aba;
   mesAtivo = mes;
@@ -1762,7 +1822,7 @@ function restaurarBackup(event) {
           if (!ordemSubAbas[aba]) ordemSubAbas[aba] = Object.keys(dadosAbas[aba]);
         });
         abaAtiva = importado.ativa || ordemAbas[0];
-        mesAtivo = ordemSubAbas[abaAtiva][0] || 'Geral';
+        mesAtivo = ordemSubAbas[abaAtiva][0] || 'GERAL';
         salvarArquivoAutomaticamente();
         Swal.fire('Restaurado!', 'Seu backup foi enviado para a nuvem com sucesso!', 'success');
       } else {
