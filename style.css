@@ -58,6 +58,8 @@ body {
   position: relative;
   transition: background-color 0.3s;
 }
+
+/* O padding inferior foi ajustado para caber perfeitamente o novo rodapé fixo */
 .conteudo-principal {
   flex: 1;
   overflow-y: auto;
@@ -507,114 +509,33 @@ th {
   flex: 1;
 }
 
-/* Abas Flutuantes Rodapé */
+/* NOVO RODAPÉ DROPDOWN */
 .abas-container {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
-  background-color: transparent;
-  display: flex;
-  align-items: flex-end;
-  padding: 0 40px 15px 40px;
-  gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  z-index: 50;
-  pointer-events: none;
-}
-.lista-abas,
-.btn-nova-aba,
-.btn-excel,
-.acoes-finais {
-  pointer-events: auto;
-}
-.abas-container::-webkit-scrollbar {
-  height: 6px;
-  pointer-events: auto;
-}
-.abas-container::-webkit-scrollbar-thumb {
-  background-color: var(--text-muted);
-  border-radius: 4px;
-}
-.lista-abas {
-  display: flex;
-  gap: 8px;
-}
-.aba {
-  flex-shrink: 0;
+  background: var(--bg-header);
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
-  background-color: var(--aba-inativa);
-  border: 1px solid var(--border-color);
-  border-bottom: none;
-  border-radius: 10px 10px 0 0;
-  cursor: grab;
-  font-weight: bold;
-  color: var(--text-muted);
-  transition: all 0.2s ease;
-  box-shadow: 0 -2px 6px var(--shadow-color);
-  user-select: none;
-  -webkit-user-select: none;
-}
-.aba:active {
-  cursor: grabbing;
-}
-.aba.drag-over {
-  opacity: 0.6;
-  border-left: 3px dashed #3498db;
-  border-right: 3px dashed #3498db;
-}
-.aba:hover {
-  background-color: var(--aba-hover);
-  color: var(--text-main);
-  transform: translateY(-2px);
-  box-shadow: 0 -4px 8px var(--shadow-color);
-}
-.aba.ativa {
-  background-color: var(--aba-ativa);
-  color: #2c3e50;
-  border: 1px solid var(--border-color);
-  border-bottom: none;
-  box-shadow: 0 -6px 16px var(--shadow-color);
-  transform: translateY(0);
-  position: relative;
-  z-index: 2;
-}
-[data-theme='dark'] .aba.ativa {
-  color: #3498db;
-}
-.aba-acoes {
-  display: none;
-  gap: 5px;
-}
-.aba.ativa .aba-acoes {
-  display: flex;
-}
-.btn-aba-acao {
-  background: none;
-  border: none !important;
-  box-shadow: none !important;
-  cursor: pointer;
-  font-size: 11px;
-  padding: 3px;
-  color: var(--text-muted);
-  transition: color 0.2s;
-}
-.btn-aba-acao:hover {
-  color: #e74c3c;
-  transform: none !important;
-}
-.btn-aba-acao.edit:hover {
-  color: #f39c12;
+  padding: 10px 40px;
+  gap: 15px;
+  border-top: 2px solid var(--border-color);
+  z-index: 50;
 }
 .btn-nova-aba,
 .btn-excel,
 button[onclick='window.print()'] {
   flex-shrink: 0;
   box-shadow: 0 4px 6px var(--shadow-color);
+  padding: 8px 15px;
+}
+
+.acoes-finais {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+  pointer-events: auto;
 }
 
 /* SweetAlert Z-Index */
@@ -638,7 +559,7 @@ button[onclick='window.print()'] {
   border-color: var(--border-input);
 }
 
-/* Níveis de Acesso */
+/* Níveis de Acesso (Role-Based UI) */
 body[data-role='guest'] .block-guest,
 body[data-role='guest'] .coluna-acao,
 body[data-role='guest'] .aba-acoes {
